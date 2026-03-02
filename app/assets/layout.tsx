@@ -5,5 +5,5 @@ export default function AssetsLayout({
 }: {
   children: React.ReactNode
 }) {
-  return children  
+  return children   
 }
