@@ -4,7 +4,7 @@ import { ClassroomCard } from "./classroom-card"
 import { ClassroomListItem } from "./classroom-list-item"
 
 interface ClassroomGridProps {
-  viewMode: "list" | "large" | "small" | "iot"
+  viewMode: "list" | "large"
   filterStatus: string[]
   searchQuery: string
   selectedNode: string
@@ -139,12 +139,7 @@ export function ClassroomGrid({
     )
   }
 
-  const gridClass =
-    viewMode === "small"
-      ? "grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6"
-      : viewMode === "iot"
-        ? "grid-cols-3 xl:grid-cols-4"
-        : "grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
+  const gridClass = "grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
 
   return (
     <div className={`grid ${gridClass} gap-4`}>

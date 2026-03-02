@@ -6,8 +6,6 @@ import { Badge } from "@/components/ui/badge"
 import {
   LayoutGrid,
   LayoutList,
-  Grid3x3,
-  Sliders,
   Search,
   Power,
   PowerOff,
@@ -45,8 +43,8 @@ import {
 import { useState } from "react"
 
 interface ClassroomToolbarProps {
-  viewMode: "list" | "large" | "small" | "iot"
-  onViewModeChange: (mode: "list" | "large" | "small" | "iot") => void
+  viewMode: "list" | "large"
+  onViewModeChange: (mode: "list" | "large") => void
   filterStatus: string[]
   onFilterStatusChange: (status: string[]) => void
   searchQuery: string
@@ -137,22 +135,6 @@ export function ClassroomToolbar({
                   className="h-8 w-8 p-0"
                 >
                   <LayoutGrid className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant={viewMode === "small" ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => onViewModeChange("small")}
-                  className="h-8 w-8 p-0"
-                >
-                  <Grid3x3 className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant={viewMode === "iot" ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => onViewModeChange("iot")}
-                  className="h-8 w-8 p-0"
-                >
-                  <Sliders className="h-4 w-4" />
                 </Button>
               </div>
 

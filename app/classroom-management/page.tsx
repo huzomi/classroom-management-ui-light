@@ -7,7 +7,7 @@ import { ClassroomToolbar } from "@/components/classroom/classroom-toolbar"
 import { ClassroomDetailModal } from "@/components/classroom/classroom-detail-modal"
 
 export default function ClassroomManagementPage() {
-  const [viewMode, setViewMode] = useState<"list" | "large" | "small" | "iot">("large")
+  const [viewMode, setViewMode] = useState<"list" | "large">("large")
   const [filterStatus, setFilterStatus] = useState<string[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedNode, setSelectedNode] = useState<string>("campus-1")
