@@ -94,10 +94,10 @@ export default function SchedulePage() {
   return (
     <div className="flex h-full">
       {/* Left Sidebar - Classroom Selection Tree */}
-      <div className="w-64 border-r border-white/10 bg-[#0a0a0a] flex flex-col">
-        <div className="p-4 border-b border-white/10">
-          <h3 className="font-semibold text-white">教室选择</h3>
-          <p className="text-xs text-gray-400 mt-1">选择教室查看课表</p>
+      <div className="w-64 border-r border-border bg-card flex flex-col">
+        <div className="p-4 border-b border-border">
+          <h3 className="font-semibold text-foreground">教室选择</h3>
+          <p className="text-xs text-muted-foreground mt-1">选择教室查看课表</p>
         </div>
 
         <div className="flex-1 overflow-auto p-2">
@@ -106,15 +106,15 @@ export default function SchedulePage() {
               {/* 校区层级 */}
               <button
                 onClick={() => toggleCampus(campusData.campus)}
-                className="flex items-center gap-2 w-full p-2 hover:bg-white/5 rounded-md text-sm transition-colors"
+                className="flex items-center gap-2 w-full p-2 hover:bg-accent rounded-md text-sm transition-colors"
               >
                 {expandedCampuses.has(campusData.campus) ? (
-                  <ChevronDown className="h-4 w-4 text-gray-400" />
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
                 ) : (
-                  <ChevronRight className="h-4 w-4 text-gray-400" />
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 )}
-                <Building className="h-4 w-4 text-blue-400" />
-                <span className="text-blue-400 font-medium">{campusData.campus}</span>
+                <Building className="h-4 w-4 text-primary" />
+                <span className="text-primary font-medium">{campusData.campus}</span>
               </button>
 
               {expandedCampuses.has(campusData.campus) && (
@@ -126,15 +126,15 @@ export default function SchedulePage() {
                         {/* 教学楼层级 */}
                         <button
                           onClick={() => toggleBuilding(buildingKey)}
-                          className="flex items-center gap-2 w-full p-2 hover:bg-white/5 rounded-md text-sm transition-colors"
+                          className="flex items-center gap-2 w-full p-2 hover:bg-accent rounded-md text-sm transition-colors"
                         >
                           {expandedBuildings.has(buildingKey) ? (
-                            <ChevronDown className="h-4 w-4 text-gray-400" />
+                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
                           ) : (
-                            <ChevronRight className="h-4 w-4 text-gray-400" />
+                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
                           )}
-                          <Building className="h-4 w-4 text-blue-400" />
-                          <span className="text-blue-400">{building.name}</span>
+                          <Building className="h-4 w-4 text-primary" />
+                          <span className="text-primary">{building.name}</span>
                         </button>
 
                         {expandedBuildings.has(buildingKey) && (
@@ -146,15 +146,15 @@ export default function SchedulePage() {
                                   {/* 楼层层级 */}
                                   <button
                                     onClick={() => toggleFloor(floorKey)}
-                                    className="flex items-center gap-2 w-full p-2 hover:bg-white/5 rounded-md text-sm transition-colors"
+                                    className="flex items-center gap-2 w-full p-2 hover:bg-accent rounded-md text-sm transition-colors"
                                   >
                                     {expandedFloors.has(floorKey) ? (
-                                      <ChevronDown className="h-3 w-3 text-gray-400" />
+                                      <ChevronDown className="h-3 w-3 text-muted-foreground" />
                                     ) : (
-                                      <ChevronRight className="h-3 w-3 text-gray-400" />
+                                      <ChevronRight className="h-3 w-3 text-muted-foreground" />
                                     )}
-                                    <Layers className="h-3 w-3 text-blue-400" />
-                                    <span className="text-blue-400 text-sm">{floor.name}</span>
+                                    <Layers className="h-3 w-3 text-primary" />
+                                    <span className="text-primary text-sm">{floor.name}</span>
                                   </button>
 
                                   {expandedFloors.has(floorKey) && (
@@ -166,8 +166,8 @@ export default function SchedulePage() {
                                           onClick={() => setSelectedClassroom(classroom)}
                                           className={`flex items-center gap-2 w-full p-2 rounded-md text-sm transition-colors ${
                                             selectedClassroom === classroom
-                                              ? "bg-blue-500/20 text-blue-400"
-                                              : "hover:bg-white/5 text-blue-400"
+                                              ? "bg-primary/10 text-primary"
+                                              : "hover:bg-accent text-primary"
                                           }`}
                                         >
                                           <Monitor className="h-3 w-3" />
@@ -194,22 +194,22 @@ export default function SchedulePage() {
       {/* Right Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="border-b border-white/10 bg-[#0a0a0a] px-6 py-4">
+      <div className="border-b border-border bg-card px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-white">课表排课</h1>
-            <p className="mt-1 text-sm text-gray-400">教学课程安排与管理</p>
+            <h1 className="text-2xl font-semibold text-foreground">课表排课</h1>
+            <p className="mt-1 text-sm text-muted-foreground">教学课程安排与管理</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" className="border-white/10 bg-white/5">
+            <Button variant="outline">
               <Upload className="mr-2 h-4 w-4" />
               导入课表
             </Button>
-            <Button variant="outline" className="border-white/10 bg-white/5">
+            <Button variant="outline">
               <Download className="mr-2 h-4 w-4" />
               导出课表
             </Button>
-            <Button className="bg-blue-600 hover:bg-blue-700">
+            <Button>
               <Plus className="mr-2 h-4 w-4" />
               新建课程
             </Button>
@@ -221,14 +221,14 @@ export default function SchedulePage() {
       <div className="flex-1 overflow-auto p-6">
         <div className="space-y-6">
           {/* Filters */}
-          <Card className="border-white/10 bg-white/5">
+          <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
                 <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     placeholder="搜索课程、教师、教室..."
-                    className="border-white/10 bg-white/5 pl-10 text-white"
+                    className="pl-10"
                   />
                 </div>
               </div>
@@ -236,11 +236,11 @@ export default function SchedulePage() {
           </Card>
 
           {/* Schedule Grid */}
-          <Card className="border-white/10 bg-white/5">
+          <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-white">本周课表</CardTitle>
+                  <CardTitle>本周课表</CardTitle>
                   <CardDescription>2024年第3周 (1月15日 - 1月21日)</CardDescription>
                 </div>
                 <div className="flex items-center gap-2">
@@ -257,10 +257,10 @@ export default function SchedulePage() {
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-white/10">
-                      <th className="p-3 text-left text-sm font-medium text-gray-400">时间</th>
+                    <tr className="border-b border-border">
+                      <th className="p-3 text-left text-sm font-medium text-muted-foreground">时间</th>
                       {weekDays.map((day) => (
-                        <th key={day} className="p-3 text-center text-sm font-medium text-gray-400">
+                        <th key={day} className="p-3 text-center text-sm font-medium text-muted-foreground">
                           {day}
                         </th>
                       ))}
@@ -268,8 +268,8 @@ export default function SchedulePage() {
                   </thead>
                   <tbody>
                     {timeSlots.map((time, timeIndex) => (
-                      <tr key={time} className="border-b border-white/10">
-                        <td className="p-3 text-sm text-gray-400">
+                      <tr key={time} className="border-b border-border">
+                        <td className="p-3 text-sm text-muted-foreground">
                           <div className="flex items-center gap-2">
                             <Clock className="h-4 w-4" />
                             {time}
@@ -280,17 +280,17 @@ export default function SchedulePage() {
                           return (
                             <td key={day} className="p-2">
                               {hasCourse ? (
-                                <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 p-3 hover:bg-blue-500/20 transition-colors cursor-pointer">
-                                  <p className="text-sm font-medium text-white">高等数学</p>
-                                  <p className="mt-1 text-xs text-gray-400">张老师</p>
-                                  <p className="mt-1 text-xs text-gray-500">101教室</p>
-                                  <Badge variant="outline" className="mt-2 text-xs border-blue-500/50 text-blue-400">
+                                <div className="rounded-lg border border-primary/30 bg-primary/10 p-3 hover:bg-primary/20 transition-colors cursor-pointer">
+                                  <p className="text-sm font-medium text-foreground">高等数学</p>
+                                  <p className="mt-1 text-xs text-muted-foreground">张老师</p>
+                                  <p className="mt-1 text-xs text-muted-foreground">101教室</p>
+                                  <Badge variant="outline" className="mt-2 text-xs border-primary/50 text-primary">
                                     已排课
                                   </Badge>
                                 </div>
                               ) : (
-                                <div className="flex h-full min-h-[100px] items-center justify-center rounded-lg border border-dashed border-white/10 hover:border-white/20 hover:bg-white/5 transition-colors cursor-pointer">
-                                  <Plus className="h-5 w-5 text-gray-600" />
+                                <div className="flex h-full min-h-[100px] items-center justify-center rounded-lg border border-dashed border-border hover:border-muted-foreground hover:bg-accent transition-colors cursor-pointer">
+                                  <Plus className="h-5 w-5 text-muted-foreground" />
                                 </div>
                               )}
                             </td>
@@ -305,9 +305,9 @@ export default function SchedulePage() {
           </Card>
 
           {/* Course List */}
-          <Card className="border-white/10 bg-white/5">
+          <Card>
             <CardHeader>
-              <CardTitle className="text-white">课程列表</CardTitle>
+              <CardTitle>课程列表</CardTitle>
               <CardDescription>所有已排课程</CardDescription>
             </CardHeader>
             <CardContent>
@@ -320,25 +320,25 @@ export default function SchedulePage() {
                 ].map((course, i) => (
                   <div
                     key={i}
-                    className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 p-4 hover:bg-white/10 transition-colors"
+                    className="flex items-center justify-between rounded-lg border border-border bg-card p-4 hover:bg-accent transition-colors"
                   >
                     <div className="flex items-center gap-4">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-500/10">
-                        <Calendar className="h-6 w-6 text-blue-400" />
+                      <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+                        <Calendar className="h-6 w-6 text-primary" />
                       </div>
                       <div>
-                        <p className="font-medium text-white">{course.name}</p>
-                        <p className="mt-1 text-sm text-gray-400">
+                        <p className="font-medium text-foreground">{course.name}</p>
+                        <p className="mt-1 text-sm text-muted-foreground">
                           {course.teacher} · {course.room}教室 · {course.students}人
                         </p>
-                        <p className="mt-0.5 text-xs text-gray-500">{course.time}</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">{course.time}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button size="sm" variant="ghost" className="text-gray-400 hover:text-white">
+                      <Button size="sm" variant="ghost">
                         编辑
                       </Button>
-                      <Button size="sm" variant="ghost" className="text-gray-400 hover:text-white">
+                      <Button size="sm" variant="ghost">
                         删除
                       </Button>
                     </div>
