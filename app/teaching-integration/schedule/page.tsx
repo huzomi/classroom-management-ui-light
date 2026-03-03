@@ -17,6 +17,11 @@ import {
   Move,
   X,
   Check,
+  ChevronRight,
+  ChevronDown,
+  Building,
+  Layers,
+  Monitor,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
@@ -39,6 +44,51 @@ type CourseData = {
   status?: "scheduled" | "in-class" | "completed"
 }
 
+// 教室树形结构数据
+const classroomStructure = [
+  {
+    campus: "主校区",
+    buildings: [
+      {
+        name: "教一楼",
+        floors: [
+          {
+            name: "一楼",
+            classrooms: ["109", "110", "501", "208", "209", "211"],
+          },
+          {
+            name: "二楼",
+            classrooms: ["212", "213", "214", "215"],
+          },
+        ],
+      },
+      {
+        name: "教二楼",
+        floors: [
+          {
+            name: "一楼",
+            classrooms: ["101", "102", "103"],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    campus: "南校区",
+    buildings: [
+      {
+        name: "综合楼",
+        floors: [
+          {
+            name: "一楼",
+            classrooms: ["N101", "N102", "N103"],
+          },
+        ],
+      },
+    ],
+  },
+]
+
 export default function ScheduleManagementPage() {
   const [linkageEnabled, setLinkageEnabled] = useState(true)
   const [selectedBuilding, setSelectedBuilding] = useState("all")
@@ -48,6 +98,42 @@ export default function ScheduleManagementPage() {
   const [targetDay, setTargetDay] = useState("")
   const [targetPeriod, setTargetPeriod] = useState("")
   const currentWeek = 12
+
+  // 树形菜单状态
+  const [expandedCampuses, setExpandedCampuses] = useState<Set<string>>(new Set(["主校区"]))
+  const [expandedBuildings, setExpandedBuildings] = useState<Set<string>>(new Set(["主校区-教一楼"]))
+  const [expandedFloors, setExpandedFloors] = useState<Set<string>>(new Set(["主校区-教一楼-一楼"]))
+  const [selectedClassroom, setSelectedClassroom] = useState<string | null>("109")
+
+  const toggleCampus = (campus: string) => {
+    const newExpanded = new Set(expandedCampuses)
+    if (newExpanded.has(campus)) {
+      newExpanded.delete(campus)
+    } else {
+      newExpanded.add(campus)
+    }
+    setExpandedCampuses(newExpanded)
+  }
+
+  const toggleBuilding = (buildingKey: string) => {
+    const newExpanded = new Set(expandedBuildings)
+    if (newExpanded.has(buildingKey)) {
+      newExpanded.delete(buildingKey)
+    } else {
+      newExpanded.add(buildingKey)
+    }
+    setExpandedBuildings(newExpanded)
+  }
+
+  const toggleFloor = (floorKey: string) => {
+    const newExpanded = new Set(expandedFloors)
+    if (newExpanded.has(floorKey)) {
+      newExpanded.delete(floorKey)
+    } else {
+      newExpanded.add(floorKey)
+    }
+    setExpandedFloors(newExpanded)
+  }
 
   const weekDays = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
   const periods = [
@@ -409,7 +495,107 @@ export default function ScheduleManagementPage() {
   }, 0)
 
   return (
-    <main className="flex-1 overflow-auto p-6">
+    <div className="flex h-[calc(100vh-4rem)]">
+      {/* Left Sidebar - Classroom Selection Tree */}
+      <div className="w-64 border-r border-border bg-card flex flex-col flex-shrink-0">
+        <div className="p-4 border-b border-border">
+          <h3 className="font-semibold text-foreground">教室选择</h3>
+          <p className="text-xs text-muted-foreground mt-1">选择教室查看课表</p>
+        </div>
+
+        <div className="flex-1 overflow-auto p-2">
+          {classroomStructure.map((campusData) => (
+            <div key={campusData.campus} className="mb-1">
+              {/* 校区层级 */}
+              <button
+                onClick={() => toggleCampus(campusData.campus)}
+                className="flex items-center gap-2 w-full p-2 hover:bg-accent rounded-md text-sm transition-colors"
+              >
+                {expandedCampuses.has(campusData.campus) ? (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                )}
+                <Building className="h-4 w-4 text-primary" />
+                <span className="text-primary font-medium">{campusData.campus}</span>
+              </button>
+
+              {expandedCampuses.has(campusData.campus) && (
+                <div className="ml-4">
+                  {campusData.buildings.map((building) => {
+                    const buildingKey = `${campusData.campus}-${building.name}`
+                    return (
+                      <div key={buildingKey} className="mb-1">
+                        {/* 教学楼层级 */}
+                        <button
+                          onClick={() => toggleBuilding(buildingKey)}
+                          className="flex items-center gap-2 w-full p-2 hover:bg-accent rounded-md text-sm transition-colors"
+                        >
+                          {expandedBuildings.has(buildingKey) ? (
+                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                          )}
+                          <Building className="h-4 w-4 text-primary" />
+                          <span className="text-primary">{building.name}</span>
+                        </button>
+
+                        {expandedBuildings.has(buildingKey) && (
+                          <div className="ml-4">
+                            {building.floors.map((floor) => {
+                              const floorKey = `${campusData.campus}-${building.name}-${floor.name}`
+                              return (
+                                <div key={floorKey} className="mb-1">
+                                  {/* 楼层层级 */}
+                                  <button
+                                    onClick={() => toggleFloor(floorKey)}
+                                    className="flex items-center gap-2 w-full p-2 hover:bg-accent rounded-md text-sm transition-colors"
+                                  >
+                                    {expandedFloors.has(floorKey) ? (
+                                      <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                                    ) : (
+                                      <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                                    )}
+                                    <Layers className="h-3 w-3 text-primary" />
+                                    <span className="text-primary text-sm">{floor.name}</span>
+                                  </button>
+
+                                  {expandedFloors.has(floorKey) && (
+                                    <div className="ml-6 space-y-0.5">
+                                      {/* 教室层级 */}
+                                      {floor.classrooms.map((classroom) => (
+                                        <button
+                                          key={classroom}
+                                          onClick={() => setSelectedClassroom(classroom)}
+                                          className={`flex items-center gap-2 w-full p-2 rounded-md text-sm transition-colors ${
+                                            selectedClassroom === classroom
+                                              ? "bg-primary/10 text-primary"
+                                              : "hover:bg-accent text-primary"
+                                          }`}
+                                        >
+                                          <Monitor className="h-3 w-3" />
+                                          <span className="text-sm">{classroom}</span>
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Right Content */}
+      <main className="flex-1 overflow-auto p-6">
       <div className="mx-auto max-w-[1800px] space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -682,5 +868,6 @@ export default function ScheduleManagementPage() {
         </DialogContent>
       </Dialog>
     </main>
+    </div>
   )
 }
