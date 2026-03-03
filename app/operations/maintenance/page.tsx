@@ -721,19 +721,7 @@ export default function MaintenancePage() {
             </div>
           )}
 
-          {/* 底部按钮 */}
-          <div className="flex justify-end">
-            <Button variant="outline" onClick={() => setDetailDialogOpen(false)}>
-              关闭
-            </Button>
-          </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* 底部按��� */}
+{/* 底部按钮 */}
           <div className="flex justify-end">
             <Button variant="outline" onClick={() => setDetailDialogOpen(false)}>
               关闭
