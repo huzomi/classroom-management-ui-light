@@ -28,6 +28,21 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
+// 每日巡检状态数据（日期 -> { count: 巡检次数, hasAbnormal: 是否有异常 }）
+const dailyInspectionStatus: Record<string, { count: number; hasAbnormal: boolean }> = {
+  "2026-02-02": { count: 3, hasAbnormal: false },
+  "2026-02-03": { count: 2, hasAbnormal: true },
+  "2026-02-05": { count: 1, hasAbnormal: false },
+  "2026-02-09": { count: 4, hasAbnormal: false },
+  "2026-02-10": { count: 2, hasAbnormal: true },
+  "2026-02-11": { count: 1, hasAbnormal: false },
+  "2026-02-16": { count: 3, hasAbnormal: false },
+  "2026-02-17": { count: 2, hasAbnormal: false },
+  "2026-02-18": { count: 1, hasAbnormal: true },
+  "2026-02-23": { count: 2, hasAbnormal: false },
+  "2026-02-24": { count: 1, hasAbnormal: false },
+}
+
 // 固定的巡检记录数据
 const inspectionRecords = [
   { id: 1, time: "2026-02-02 17:35:04", campus: "阳光校区", building: "纺织大学教学楼", floor: "一楼", classroom: "YG09-102", deviceCount: 1, result: "正常" },
@@ -56,7 +71,7 @@ export default function InspectionPage() {
     const daysInMonth = lastDay.getDate()
     const startDayOfWeek = firstDay.getDay()
     
-    const days: { day: number; isCurrentMonth: boolean; status?: "normal" | "abnormal" | "none" }[] = []
+    const days: { day: number; isCurrentMonth: boolean; status?: "normal" | "abnormal" | "none"; count?: number }[] = []
     
     // 上个月的天数
     const prevMonthLastDay = new Date(currentYear, currentMonth - 1, 0).getDate()
@@ -66,9 +81,18 @@ export default function InspectionPage() {
     
     // 当前月的天数
     for (let i = 1; i <= daysInMonth; i++) {
+      const dateKey = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(i).padStart(2, '0')}`
+      const dayStatus = dailyInspectionStatus[dateKey]
+      
       let status: "normal" | "abnormal" | "none" = "none"
-      if (i === 2) status = "normal" // 示例：2号有正常巡检
-      days.push({ day: i, isCurrentMonth: true, status })
+      let count = 0
+      
+      if (dayStatus) {
+        status = dayStatus.hasAbnormal ? "abnormal" : "normal"
+        count = dayStatus.count
+      }
+      
+      days.push({ day: i, isCurrentMonth: true, status, count })
     }
     
     // 下个月的天数
@@ -201,13 +225,29 @@ export default function InspectionPage() {
                     key={index}
                     onClick={() => item.isCurrentMonth && setSelectedDate(item.day)}
                     className={`
-                      aspect-square flex items-center justify-center text-sm rounded-md transition-colors
+                      aspect-square flex flex-col items-center justify-center text-sm rounded-md transition-colors relative
                       ${!item.isCurrentMonth ? "text-muted-foreground/50" : "text-foreground"}
                       ${item.isCurrentMonth && selectedDate === item.day ? "bg-primary text-primary-foreground" : ""}
                       ${item.isCurrentMonth && selectedDate !== item.day ? "hover:bg-accent" : ""}
                     `}
                   >
-                    {item.day}
+                    <span>{item.day}</span>
+                    {item.isCurrentMonth && item.status && item.status !== "none" && (
+                      <>
+                        <div 
+                          className={`absolute top-1 right-1 h-1.5 w-1.5 rounded-full ${
+                            item.status === "normal" ? "bg-green-500" : "bg-red-500"
+                          }`}
+                        />
+                        {item.count && item.count > 0 && (
+                          <span className={`text-[10px] leading-none ${
+                            selectedDate === item.day ? "text-primary-foreground/80" : "text-muted-foreground"
+                          }`}>
+                            {item.count}次
+                          </span>
+                        )}
+                      </>
+                    )}
                   </button>
                 ))}
               </div>
