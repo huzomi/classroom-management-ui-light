@@ -116,6 +116,10 @@ export default function MaintenancePage() {
   const [acceptDialogOpen, setAcceptDialogOpen] = useState(false)
   const [acceptAction, setAcceptAction] = useState<"accept" | "delay" | "no-action">("accept")
   const [acceptNote, setAcceptNote] = useState("")
+
+  // 延后处理对话框状态
+  const [processDialogOpen, setProcessDialogOpen] = useState(false)
+  const [processNote, setProcessNote] = useState("")
   const [formBuilding, setFormBuilding] = useState<string>("")
   const [formFloor, setFormFloor] = useState<string>("")
   const [formClassroom, setFormClassroom] = useState<string>("")
@@ -170,6 +174,13 @@ export default function MaintenancePage() {
     setAcceptAction("accept")
     setAcceptNote("")
     setAcceptDialogOpen(true)
+  }
+
+  // 打开延后处理对话框
+  const handleOpenProcess = (ticket: typeof tickets[0]) => {
+    setSelectedTicket(ticket)
+    setProcessNote("")
+    setProcessDialogOpen(true)
   }
 
   const handleReset = () => {
@@ -329,6 +340,8 @@ export default function MaintenancePage() {
                                 handleOpenDetail(ticket)
                               } else if (action === "接单") {
                                 handleOpenAccept(ticket)
+                              } else if (action === "处理") {
+                                handleOpenProcess(ticket)
                               }
                             }}
                           >
@@ -348,6 +361,135 @@ export default function MaintenancePage() {
       {/* 分页 */}
       <div className="flex items-center justify-end gap-4 mt-4">
         <span className="text-sm text-muted-foreground">共{tickets.length}条</span>
+
+      {/* 延后处理对话框 */}
+      <Dialog open={processDialogOpen} onOpenChange={setProcessDialogOpen}>
+        <DialogContent className="sm:max-w-[550px]">
+          <DialogHeader>
+            <DialogTitle>工单详情与处理</DialogTitle>
+          </DialogHeader>
+          
+          {selectedTicket && (
+            <div className="space-y-6 py-4">
+              {/* 报修信息 */}
+              <div>
+                <h4 className="font-medium text-foreground mb-4">报修信息</h4>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex items-center">
+                      <span className="text-muted-foreground w-16">工单号</span>
+                      <span className="text-foreground">{selectedTicket.id}</span>
+                    </div>
+                    <div className="flex items-center">
+                      <span className="text-muted-foreground w-16">当前状态</span>
+                      <Badge 
+                        variant="outline" 
+                        className={statusConfig[selectedTicket.status as keyof typeof statusConfig].color}
+                      >
+                        {statusConfig[selectedTicket.status as keyof typeof statusConfig].label}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex items-center">
+                      <span className="text-muted-foreground w-16">报修位置</span>
+                      <span className="text-foreground">{selectedTicket.location}</span>
+                    </div>
+                    <div className="flex items-center">
+                      <span className="text-muted-foreground w-16">故障类型</span>
+                      <span className="text-foreground">
+                        {faultTypeConfig[selectedTicket.faultType as keyof typeof faultTypeConfig].label}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center">
+                    <span className="text-muted-foreground w-16">报修人</span>
+                    <span className="text-foreground">{selectedTicket.reporter}</span>
+                  </div>
+                  <div className="flex items-center">
+                    <span className="text-muted-foreground w-16">报修时间</span>
+                    <span className="text-foreground">{selectedTicket.reportTime}</span>
+                  </div>
+                  <div className="flex items-center">
+                    <span className="text-muted-foreground w-16">故障描述</span>
+                    <span className="text-foreground">{selectedTicket.description}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 处理进度 - 延后处理有两条记录 */}
+              <div>
+                <h4 className="font-medium text-foreground mb-4">处理进度</h4>
+                <div className="relative pl-6">
+                  <div className="absolute left-[7px] top-2 bottom-2 w-0.5 bg-border"></div>
+                  {/* 第一条记录 - 用户报修 */}
+                  <div className="relative pb-4">
+                    <div className="absolute left-[-20px] top-1 h-3.5 w-3.5 rounded-full bg-primary border-2 border-background"></div>
+                    <div className="ml-2">
+                      <p className="text-sm text-primary font-medium">{selectedTicket.reportTime}</p>
+                      <p className="text-sm text-foreground mt-1">用户报修</p>
+                      <p className="text-sm text-muted-foreground">{selectedTicket.reporter}提交了故障报修</p>
+                    </div>
+                  </div>
+                  {/* 第二条记录 - 延后处理 */}
+                  <div className="relative pb-4">
+                    <div className="absolute left-[-20px] top-1 h-3.5 w-3.5 rounded-full bg-orange-500 border-2 border-background"></div>
+                    <div className="ml-2">
+                      <p className="text-sm text-orange-500 font-medium">2026-03-03 11:16:54</p>
+                      <p className="text-sm text-foreground mt-1">待处理</p>
+                      <p className="text-sm text-muted-foreground">{selectedTicket.reporter}提交工单[延后处理]:48484</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 处理反馈 - 只有处理完成选项 */}
+              <div>
+                <h4 className="font-medium text-foreground mb-4">处理反馈</h4>
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground w-16">处理动作</span>
+                    <div className="flex items-center gap-4">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="processAction"
+                          checked={true}
+                          readOnly
+                          className="w-4 h-4 text-primary"
+                        />
+                        <span className="text-sm">处理完成</span>
+                      </label>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-muted-foreground w-16 pt-2">处理备注</span>
+                    <Textarea
+                      placeholder="填写处理情况说明..."
+                      className="flex-1 min-h-[100px]"
+                      value={processNote}
+                      onChange={(e) => setProcessNote(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 底部按钮 */}
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setProcessDialogOpen(false)}>
+              关闭
+            </Button>
+            <Button onClick={() => {
+              // 提交处理逻辑
+              setProcessDialogOpen(false)
+            }}>
+              提交处理
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* 接单对话框 */}
       <Dialog open={acceptDialogOpen} onOpenChange={setAcceptDialogOpen}>
