@@ -1,80 +1,244 @@
 "use client"
+
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Edit, Trash2, Building2 } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Search, Plus, RefreshCw, Wrench, Settings, ChevronUp, ChevronDown, Info } from "lucide-react"
+
+// 模拟数据
+const buildingsData = [
+  { 
+    id: 1, 
+    name: "教一楼", 
+    code: "", 
+    campus: "主校区", 
+    sort: null, 
+    longitude: null, 
+    latitude: null, 
+    createdAt: "2026-02-06 14:03:38" 
+  },
+  { 
+    id: 2, 
+    name: "教二楼", 
+    code: "sss", 
+    campus: "主校区", 
+    sort: 0, 
+    longitude: 114.308848, 
+    latitude: 30.4774, 
+    createdAt: "2026-02-02 09:37:51" 
+  },
+]
 
 export default function BuildingsPage() {
-  const buildings = [
-    { id: 1, name: "第一教学楼", code: "A", floors: 5, classrooms: 120, status: "active" },
-    { id: 2, name: "第二教学楼", code: "B", floors: 6, classrooms: 150, status: "active" },
-    { id: 3, name: "第三教学楼", code: "C", floors: 4, classrooms: 100, status: "active" },
-    { id: 4, name: "实验楼", code: "D", floors: 8, classrooms: 200, status: "active" },
-  ]
+  const [searchName, setSearchName] = useState("")
+  const [selectedCampus, setSelectedCampus] = useState<string>("")
+  const [selectedRows, setSelectedRows] = useState<number[]>([])
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedRows(buildingsData.map(b => b.id))
+    } else {
+      setSelectedRows([])
+    }
+  }
+
+  const handleSelectRow = (id: number, checked: boolean) => {
+    if (checked) {
+      setSelectedRows([...selectedRows, id])
+    } else {
+      setSelectedRows(selectedRows.filter(rowId => rowId !== id))
+    }
+  }
+
+  const handleReset = () => {
+    setSearchName("")
+    setSelectedCampus("")
+  }
+
+  const totalItems = buildingsData.length
 
   return (
-    <div className="p-6">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">教学楼管理</h1>
-        <Button className="gap-2">
-          <Plus className="h-4 w-4" />
-          添加教学楼
-        </Button>
-      </div>
+    <main className="flex-1 overflow-auto p-6">
+      <div className="space-y-4">
+        {/* 筛选栏 */}
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground whitespace-nowrap">楼栋名称:</span>
+            <Input
+              placeholder="请输入楼栋名称"
+              value={searchName}
+              onChange={(e) => setSearchName(e.target.value)}
+              className="w-48"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground whitespace-nowrap">所属校区:</span>
+            <Select value={selectedCampus} onValueChange={setSelectedCampus}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="请选择所属校区" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="main">主校区</SelectItem>
+                <SelectItem value="south">南校区</SelectItem>
+                <SelectItem value="north">北校区</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <Button>
+            <Search className="h-4 w-4 mr-1" />
+            查询
+          </Button>
+          <Button variant="outline" onClick={handleReset}>
+            <RefreshCw className="h-4 w-4 mr-1" />
+            重置
+          </Button>
+        </div>
 
-      <div className="mb-4 flex gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="搜索教学楼..." className="pl-9" />
+        {/* 工具栏 */}
+        <div className="flex items-center justify-between">
+          <Button>
+            <Plus className="h-4 w-4 mr-1" />
+            新增
+          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon">
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon">
+              <Wrench className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon">
+              <Settings className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* 选中提示 */}
+        <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/30 px-4 py-2 rounded">
+          <Info className="h-4 w-4" />
+          <span>{selectedRows.length > 0 ? `已选中 ${selectedRows.length} 条数据` : "未选中任何数据"}</span>
+        </div>
+
+        {/* 数据表格 */}
+        <div className="border border-border rounded-lg overflow-hidden">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-border bg-muted/30">
+                <th className="p-3 text-center w-12">
+                  <input
+                    type="checkbox"
+                    checked={selectedRows.length === buildingsData.length && buildingsData.length > 0}
+                    onChange={(e) => handleSelectAll(e.target.checked)}
+                    className="h-4 w-4"
+                  />
+                </th>
+                <th className="p-3 text-center text-sm font-medium text-muted-foreground">
+                  <div className="flex items-center justify-center gap-1">
+                    楼栋名称
+                    <div className="flex flex-col">
+                      <ChevronUp className="h-3 w-3" />
+                      <ChevronDown className="h-3 w-3 -mt-1" />
+                    </div>
+                  </div>
+                </th>
+                <th className="p-3 text-center text-sm font-medium text-muted-foreground">
+                  <div className="flex items-center justify-center gap-1">
+                    楼栋编号
+                    <div className="flex flex-col">
+                      <ChevronUp className="h-3 w-3" />
+                      <ChevronDown className="h-3 w-3 -mt-1" />
+                    </div>
+                  </div>
+                </th>
+                <th className="p-3 text-center text-sm font-medium text-muted-foreground">
+                  <div className="flex items-center justify-center gap-1">
+                    所属校区
+                    <div className="flex flex-col">
+                      <ChevronUp className="h-3 w-3" />
+                      <ChevronDown className="h-3 w-3 -mt-1" />
+                    </div>
+                  </div>
+                </th>
+                <th className="p-3 text-center text-sm font-medium text-muted-foreground">
+                  <div className="flex items-center justify-center gap-1">
+                    排序
+                    <div className="flex flex-col">
+                      <ChevronUp className="h-3 w-3" />
+                      <ChevronDown className="h-3 w-3 -mt-1" />
+                    </div>
+                  </div>
+                </th>
+                <th className="p-3 text-center text-sm font-medium text-muted-foreground">经度</th>
+                <th className="p-3 text-center text-sm font-medium text-muted-foreground">纬度</th>
+                <th className="p-3 text-center text-sm font-medium text-muted-foreground">
+                  <div className="flex items-center justify-center gap-1">
+                    创建时间
+                    <div className="flex flex-col">
+                      <ChevronUp className="h-3 w-3" />
+                      <ChevronDown className="h-3 w-3 -mt-1" />
+                    </div>
+                  </div>
+                </th>
+                <th className="p-3 text-center text-sm font-medium text-muted-foreground">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {buildingsData.map((building) => (
+                <tr key={building.id} className="border-b border-border hover:bg-muted/20">
+                  <td className="p-3 text-center">
+                    <input
+                      type="checkbox"
+                      checked={selectedRows.includes(building.id)}
+                      onChange={(e) => handleSelectRow(building.id, e.target.checked)}
+                      className="h-4 w-4"
+                    />
+                  </td>
+                  <td className="p-3 text-center text-sm">{building.name}</td>
+                  <td className="p-3 text-center text-sm">{building.code || ""}</td>
+                  <td className="p-3 text-center text-sm">{building.campus}</td>
+                  <td className="p-3 text-center text-sm">{building.sort ?? ""}</td>
+                  <td className="p-3 text-center text-sm">{building.longitude ?? ""}</td>
+                  <td className="p-3 text-center text-sm">{building.latitude ?? ""}</td>
+                  <td className="p-3 text-center text-sm">{building.createdAt}</td>
+                  <td className="p-3 text-center">
+                    <div className="flex items-center justify-center gap-2">
+                      <button className="text-sm text-primary hover:underline">编辑</button>
+                      <button className="text-sm text-primary hover:underline">删除</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* 分页 */}
+        <div className="flex items-center justify-end gap-4">
+          <span className="text-sm text-muted-foreground">共 {totalItems} 条数据</span>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 w-8 p-0 bg-primary text-primary-foreground"
+            >
+              1
+            </Button>
+          </div>
+          <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+            <SelectTrigger className="w-24 h-8">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="10">10 条/页</SelectItem>
+              <SelectItem value="20">20 条/页</SelectItem>
+              <SelectItem value="50">50 条/页</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {buildings.map((building) => (
-          <div key={building.id} className="rounded-lg border border-border bg-card p-6">
-            <div className="mb-4 flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-                  <Building2 className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <h3 className="font-semibold">{building.name}</h3>
-                  <p className="text-sm text-muted-foreground">楼栋代码: {building.code}</p>
-                </div>
-              </div>
-              <Badge variant="outline" className="bg-green-500/10 text-green-500">
-                运行中
-              </Badge>
-            </div>
-
-            <div className="mb-4 grid grid-cols-2 gap-4">
-              <div>
-                <div className="text-2xl font-bold">{building.floors}</div>
-                <div className="text-sm text-muted-foreground">楼层数</div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold">{building.classrooms}</div>
-                <div className="text-sm text-muted-foreground">教室数</div>
-              </div>
-            </div>
-
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" className="flex-1 gap-2 bg-transparent">
-                <Edit className="h-4 w-4" />
-                编辑
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2 text-destructive hover:bg-destructive hover:text-destructive-foreground bg-transparent"
-              >
-                <Trash2 className="h-4 w-4" />
-                删除
-              </Button>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
+    </main>
   )
 }
