@@ -1,171 +1,320 @@
 "use client"
 
-import { Calendar, Clock, Search, Plus, Download, Upload } from "lucide-react"
+import { useState } from "react"
+import { Calendar, Clock, Search, Plus, Download, Upload, ChevronRight, ChevronDown, Building, Layers, Monitor } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 
+// 教室树形结构数据
+const classroomStructure = [
+  {
+    campus: "主校区",
+    buildings: [
+      {
+        name: "教一楼",
+        floors: [
+          {
+            name: "一楼",
+            classrooms: ["109", "110", "501", "208", "209", "211"],
+          },
+          {
+            name: "二楼",
+            classrooms: ["212", "213", "214", "215"],
+          },
+        ],
+      },
+      {
+        name: "教二楼",
+        floors: [
+          {
+            name: "一楼",
+            classrooms: ["101", "102", "103"],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    campus: "南校区",
+    buildings: [
+      {
+        name: "综合楼",
+        floors: [
+          {
+            name: "一楼",
+            classrooms: ["N101", "N102", "N103"],
+          },
+        ],
+      },
+    ],
+  },
+]
+
 const timeSlots = ["08:00", "10:00", "14:00", "16:00", "19:00"]
 const weekDays = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
 
 export default function SchedulePage() {
+  const [expandedCampuses, setExpandedCampuses] = useState<Set<string>>(new Set(["主校区"]))
+  const [expandedBuildings, setExpandedBuildings] = useState<Set<string>>(new Set(["主校区-教一楼"]))
+  const [expandedFloors, setExpandedFloors] = useState<Set<string>>(new Set(["主校区-教一楼-一楼"]))
+  const [selectedClassroom, setSelectedClassroom] = useState<string | null>("109")
+
+  const toggleCampus = (campus: string) => {
+    const newExpanded = new Set(expandedCampuses)
+    if (newExpanded.has(campus)) {
+      newExpanded.delete(campus)
+    } else {
+      newExpanded.add(campus)
+    }
+    setExpandedCampuses(newExpanded)
+  }
+
+  const toggleBuilding = (buildingKey: string) => {
+    const newExpanded = new Set(expandedBuildings)
+    if (newExpanded.has(buildingKey)) {
+      newExpanded.delete(buildingKey)
+    } else {
+      newExpanded.add(buildingKey)
+    }
+    setExpandedBuildings(newExpanded)
+  }
+
+  const toggleFloor = (floorKey: string) => {
+    const newExpanded = new Set(expandedFloors)
+    if (newExpanded.has(floorKey)) {
+      newExpanded.delete(floorKey)
+    } else {
+      newExpanded.add(floorKey)
+    }
+    setExpandedFloors(newExpanded)
+  }
+
   return (
-    <div className="flex h-full flex-col">
-      {/* Header */}
-      <div className="border-b border-white/10 bg-[#0a0a0a] px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-white">课表排课</h1>
-            <p className="mt-1 text-sm text-gray-400">教学课程安排与管理</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" className="border-white/10 bg-white/5">
-              <Upload className="mr-2 h-4 w-4" />
-              导入课表
-            </Button>
-            <Button variant="outline" className="border-white/10 bg-white/5">
-              <Download className="mr-2 h-4 w-4" />
-              导出课表
-            </Button>
-            <Button className="bg-blue-600 hover:bg-blue-700">
-              <Plus className="mr-2 h-4 w-4" />
-              新建课程
-            </Button>
-          </div>
+    <div className="flex h-[calc(100vh-4rem)]">
+      {/* Left Sidebar - Classroom Selection Tree */}
+      <div className="w-64 border-r border-border bg-card flex flex-col">
+        <div className="p-4 border-b border-border">
+          <h3 className="font-semibold text-foreground">教室选择</h3>
+          <p className="text-xs text-muted-foreground mt-1">选择教室查看课表</p>
+        </div>
+
+        <div className="flex-1 overflow-auto p-2">
+          {classroomStructure.map((campusData) => (
+            <div key={campusData.campus} className="mb-1">
+              {/* 校区层级 */}
+              <button
+                onClick={() => toggleCampus(campusData.campus)}
+                className="flex items-center gap-2 w-full p-2 hover:bg-accent rounded-md text-sm transition-colors"
+              >
+                {expandedCampuses.has(campusData.campus) ? (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                )}
+                <Building className="h-4 w-4 text-primary" />
+                <span className="text-primary font-medium">{campusData.campus}</span>
+              </button>
+
+              {expandedCampuses.has(campusData.campus) && (
+                <div className="ml-4">
+                  {campusData.buildings.map((building) => {
+                    const buildingKey = `${campusData.campus}-${building.name}`
+                    return (
+                      <div key={buildingKey} className="mb-1">
+                        {/* 教学楼层级 */}
+                        <button
+                          onClick={() => toggleBuilding(buildingKey)}
+                          className="flex items-center gap-2 w-full p-2 hover:bg-accent rounded-md text-sm transition-colors"
+                        >
+                          {expandedBuildings.has(buildingKey) ? (
+                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                          )}
+                          <Building className="h-4 w-4 text-primary" />
+                          <span className="text-primary">{building.name}</span>
+                        </button>
+
+                        {expandedBuildings.has(buildingKey) && (
+                          <div className="ml-4">
+                            {building.floors.map((floor) => {
+                              const floorKey = `${campusData.campus}-${building.name}-${floor.name}`
+                              return (
+                                <div key={floorKey} className="mb-1">
+                                  {/* 楼层层级 */}
+                                  <button
+                                    onClick={() => toggleFloor(floorKey)}
+                                    className="flex items-center gap-2 w-full p-2 hover:bg-accent rounded-md text-sm transition-colors"
+                                  >
+                                    {expandedFloors.has(floorKey) ? (
+                                      <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                                    ) : (
+                                      <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                                    )}
+                                    <Layers className="h-3 w-3 text-primary" />
+                                    <span className="text-primary text-sm">{floor.name}</span>
+                                  </button>
+
+                                  {expandedFloors.has(floorKey) && (
+                                    <div className="ml-6 space-y-0.5">
+                                      {/* 教室层级 */}
+                                      {floor.classrooms.map((classroom) => (
+                                        <button
+                                          key={classroom}
+                                          onClick={() => setSelectedClassroom(classroom)}
+                                          className={`flex items-center gap-2 w-full p-2 rounded-md text-sm transition-colors ${
+                                            selectedClassroom === classroom
+                                              ? "bg-primary/10 text-primary"
+                                              : "hover:bg-accent text-primary"
+                                          }`}
+                                        >
+                                          <Monitor className="h-3 w-3" />
+                                          <span className="text-sm">{classroom}</span>
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-auto p-6">
-        <div className="space-y-6">
-          {/* Filters */}
-          <Card className="border-white/10 bg-white/5">
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
-                  <Input
-                    placeholder="搜索课程、教师、教室..."
-                    className="border-white/10 bg-white/5 pl-10 text-white"
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+      {/* Right Content */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="border-b border-border bg-card px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-semibold text-foreground">课表管理</h1>
+              <p className="mt-1 text-sm text-muted-foreground">根据排课时间联动控制教室设备，实现教学场景智能控制</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline">
+                导入课表
+              </Button>
+              <Button variant="outline">
+                导出课表
+              </Button>
+              <Button>
+                添加课程
+              </Button>
+            </div>
+          </div>
+        </div>
 
-          {/* Schedule Grid */}
-          <Card className="border-white/10 bg-white/5">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-white">本周课表</CardTitle>
-                  <CardDescription>2024年第3周 (1月15日 - 1月21日)</CardDescription>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="sm">
-                    上一周
-                  </Button>
-                  <Button variant="ghost" size="sm">
-                    下一周
-                  </Button>
-                </div>
+        {/* Content */}
+        <div className="flex-1 overflow-auto p-6">
+          <div className="space-y-6">
+            {/* Week Selector and Search */}
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-primary" />
+                <span className="text-sm text-muted-foreground">教学周</span>
+                <select className="border border-border rounded-md px-3 py-1.5 text-sm bg-background">
+                  <option>第4周</option>
+                  <option>第5周</option>
+                  <option>第6周</option>
+                </select>
+                <span className="text-sm text-muted-foreground">2024-2025第二学期</span>
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-white/10">
-                      <th className="p-3 text-left text-sm font-medium text-gray-400">时间</th>
-                      {weekDays.map((day) => (
-                        <th key={day} className="p-3 text-center text-sm font-medium text-gray-400">
-                          {day}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {timeSlots.map((time, timeIndex) => (
-                      <tr key={time} className="border-b border-white/10">
-                        <td className="p-3 text-sm text-gray-400">
-                          <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4" />
-                            {time}
-                          </div>
-                        </td>
-                        {weekDays.map((day, dayIndex) => {
-                          const hasCourse = Math.random() > 0.3
-                          return (
-                            <td key={day} className="p-2">
-                              {hasCourse ? (
-                                <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 p-3 hover:bg-blue-500/20 transition-colors cursor-pointer">
-                                  <p className="text-sm font-medium text-white">高等数学</p>
-                                  <p className="mt-1 text-xs text-gray-400">张老师</p>
-                                  <p className="mt-1 text-xs text-gray-500">101教室</p>
-                                  <Badge variant="outline" className="mt-2 text-xs border-blue-500/50 text-blue-400">
-                                    已排课
-                                  </Badge>
-                                </div>
-                              ) : (
-                                <div className="flex h-full min-h-[100px] items-center justify-center rounded-lg border border-dashed border-white/10 hover:border-white/20 hover:bg-white/5 transition-colors cursor-pointer">
-                                  <Plus className="h-5 w-5 text-gray-600" />
-                                </div>
-                              )}
-                            </td>
-                          )
-                        })}
+            </div>
+
+            {/* Search */}
+            <div className="relative max-w-md">
+              <Input
+                placeholder="搜索教室、课程或教师..."
+                className="pr-10"
+              />
+              <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            </div>
+
+            {/* Stats Cards */}
+            <div className="grid grid-cols-4 gap-4">
+              <Card>
+                <CardContent className="pt-6">
+                  <p className="text-sm text-muted-foreground">本周课程</p>
+                  <p className="text-3xl font-bold text-foreground mt-1">0</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-6">
+                  <p className="text-sm text-muted-foreground">上课中</p>
+                  <p className="text-3xl font-bold text-primary mt-1">0</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-6">
+                  <p className="text-sm text-muted-foreground">待上课</p>
+                  <p className="text-3xl font-bold text-primary mt-1">0</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-6">
+                  <p className="text-sm text-muted-foreground">已结束</p>
+                  <p className="text-3xl font-bold text-foreground mt-1">0</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Schedule Grid */}
+            <Card>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-border bg-muted/30">
+                        <th className="p-3 text-left text-sm font-medium text-muted-foreground w-28">节次</th>
+                        {weekDays.map((day) => (
+                          <th key={day} className="p-3 text-center text-sm font-medium text-muted-foreground">
+                            {day}
+                          </th>
+                        ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Course List */}
-          <Card className="border-white/10 bg-white/5">
-            <CardHeader>
-              <CardTitle className="text-white">课程列表</CardTitle>
-              <CardDescription>所有已排课程</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {[
-                  { name: "高等数学", teacher: "张老师", room: "101", time: "周一 08:00-09:40", students: 120 },
-                  { name: "大学英语", teacher: "李老师", room: "102", time: "周一 10:00-11:40", students: 80 },
-                  { name: "计算机基础", teacher: "王老师", room: "103", time: "周二 14:00-15:40", students: 100 },
-                  { name: "物理实验", teacher: "刘老师", room: "201", time: "周三 14:00-16:40", students: 45 },
-                ].map((course, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 p-4 hover:bg-white/10 transition-colors"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-500/10">
-                        <Calendar className="h-6 w-6 text-blue-400" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-white">{course.name}</p>
-                        <p className="mt-1 text-sm text-gray-400">
-                          {course.teacher} · {course.room}教室 · {course.students}人
-                        </p>
-                        <p className="mt-0.5 text-xs text-gray-500">{course.time}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button size="sm" variant="ghost" className="text-gray-400 hover:text-white">
-                        编辑
-                      </Button>
-                      <Button size="sm" variant="ghost" className="text-gray-400 hover:text-white">
-                        删除
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                    </thead>
+                    <tbody>
+                      {[
+                        { name: "第1节", time: "08:30-09:15" },
+                        { name: "第2节", time: "09:15-10:00" },
+                        { name: "第3节", time: "10:10-10:55" },
+                        { name: "第4节", time: "10:55-11:40" },
+                        { name: "第5节", time: "14:00-14:45" },
+                        { name: "第6节", time: "14:45-15:30" },
+                      ].map((slot) => (
+                        <tr key={slot.name} className="border-b border-border">
+                          <td className="p-3 text-sm">
+                            <div className="font-medium text-foreground">{slot.name}</div>
+                            <div className="text-xs text-muted-foreground">{slot.time}</div>
+                          </td>
+                          {weekDays.map((day) => (
+                            <td key={day} className="p-2">
+                              <div className="flex h-16 items-center justify-center rounded-lg border border-dashed border-border hover:border-primary hover:bg-primary/5 transition-colors cursor-pointer group">
+                                <div className="flex flex-col items-center text-muted-foreground group-hover:text-primary">
+                                  <Plus className="h-4 w-4" />
+                                  <span className="text-xs mt-1">添加</span>
+                                </div>
+                              </div>
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     </div>
