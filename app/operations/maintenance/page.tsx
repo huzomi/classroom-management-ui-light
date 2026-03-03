@@ -3,8 +3,12 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Download, Plus } from "lucide-react"
+import { Download, Plus, X } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
 
 // 故障类型配置
 const faultTypeConfig = {
@@ -71,12 +75,79 @@ const tickets = [
   },
 ]
 
+// 楼栋楼层教室联动数据
+const buildingData = {
+  "教一楼": {
+    floors: {
+      "一楼": ["101", "102", "103", "109"],
+      "二楼": ["201", "202", "203"],
+      "三楼": ["301", "302", "303"],
+    }
+  },
+  "教二楼": {
+    floors: {
+      "一楼": ["101", "102", "103"],
+      "二楼": ["201", "202", "203", "214", "224"],
+    }
+  },
+  "教三楼": {
+    floors: {
+      "一楼": ["101", "102"],
+      "二楼": ["201", "202"],
+    }
+  },
+}
+
 export default function MaintenancePage() {
   const [selectedBuilding, setSelectedBuilding] = useState<string>("")
   const [selectedFloor, setSelectedFloor] = useState<string>("")
   const [selectedClassroom, setSelectedClassroom] = useState<string>("")
   const [selectedStatus, setSelectedStatus] = useState<string>("")
   const [selectedFaultType, setSelectedFaultType] = useState<string>("")
+
+  // 新增报修对话框状态
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [formBuilding, setFormBuilding] = useState<string>("")
+  const [formFloor, setFormFloor] = useState<string>("")
+  const [formClassroom, setFormClassroom] = useState<string>("")
+  const [formTitle, setFormTitle] = useState("")
+  const [formFaultType, setFormFaultType] = useState<string>("")
+  const [formDescription, setFormDescription] = useState("")
+
+  // 获取可选楼层列表
+  const getAvailableFloors = () => {
+    if (!formBuilding) return []
+    return Object.keys(buildingData[formBuilding as keyof typeof buildingData]?.floors || {})
+  }
+
+  // 获取可选教室列表
+  const getAvailableClassrooms = () => {
+    if (!formBuilding || !formFloor) return []
+    return buildingData[formBuilding as keyof typeof buildingData]?.floors[formFloor as keyof typeof buildingData["教一楼"]["floors"]] || []
+  }
+
+  // 重置表单
+  const resetForm = () => {
+    setFormTitle("")
+    setFormBuilding("")
+    setFormFloor("")
+    setFormClassroom("")
+    setFormFaultType("")
+    setFormDescription("")
+  }
+
+  // 楼栋变更时清空楼层和教室
+  const handleBuildingChange = (value: string) => {
+    setFormBuilding(value)
+    setFormFloor("")
+    setFormClassroom("")
+  }
+
+  // 楼层变更时清空教室
+  const handleFloorChange = (value: string) => {
+    setFormFloor(value)
+    setFormClassroom("")
+  }
 
   const handleReset = () => {
     setSelectedBuilding("")
@@ -174,7 +245,7 @@ export default function MaintenancePage() {
         <Button variant="outline" onClick={handleReset}>重置</Button>
 
         <div className="ml-auto flex items-center gap-2">
-          <Button>
+          <Button onClick={() => setDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-1" />
             新增报修
           </Button>
@@ -247,6 +318,150 @@ export default function MaintenancePage() {
       {/* 分页 */}
       <div className="flex items-center justify-end gap-4 mt-4">
         <span className="text-sm text-muted-foreground">共{tickets.length}条</span>
+
+      {/* 新增报修对话框 */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>新增报修</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {/* 工单标题 */}
+            <div className="grid grid-cols-[100px_1fr] items-center gap-4">
+              <Label className="text-right">
+                <span className="text-red-500 mr-1">*</span>
+                工单标题:
+              </Label>
+              <Input
+                placeholder="请输入工单标题"
+                value={formTitle}
+                onChange={(e) => setFormTitle(e.target.value)}
+              />
+            </div>
+
+            {/* 选择楼栋 */}
+            <div className="grid grid-cols-[100px_1fr] items-center gap-4">
+              <Label className="text-right">
+                <span className="text-red-500 mr-1">*</span>
+                选择楼栋:
+              </Label>
+              <Select value={formBuilding} onValueChange={handleBuildingChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder="请选择楼栋" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.keys(buildingData).map((building) => (
+                    <SelectItem key={building} value={building}>
+                      {building}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 选择楼层 */}
+            <div className="grid grid-cols-[100px_1fr] items-center gap-4">
+              <Label className="text-right">
+                <span className="text-red-500 mr-1">*</span>
+                选择楼层:
+              </Label>
+              <Select 
+                value={formFloor} 
+                onValueChange={handleFloorChange}
+                disabled={!formBuilding}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={formBuilding ? "请选择楼层" : "请先选择楼栋"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {getAvailableFloors().map((floor) => (
+                    <SelectItem key={floor} value={floor}>
+                      {floor}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 选择教室 */}
+            <div className="grid grid-cols-[100px_1fr] items-center gap-4">
+              <Label className="text-right">
+                <span className="text-red-500 mr-1">*</span>
+                选择教室:
+              </Label>
+              <Select 
+                value={formClassroom} 
+                onValueChange={setFormClassroom}
+                disabled={!formFloor}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={formFloor ? "请选择教室" : "请先选择楼层"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {getAvailableClassrooms().map((classroom) => (
+                    <SelectItem key={classroom} value={classroom}>
+                      {classroom}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 故障类型 */}
+            <div className="grid grid-cols-[100px_1fr] items-center gap-4">
+              <Label className="text-right">
+                <span className="text-red-500 mr-1">*</span>
+                故障类型:
+              </Label>
+              <Select value={formFaultType} onValueChange={setFormFaultType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="选择故障类型" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="equipment">设备故障</SelectItem>
+                  <SelectItem value="network">网络故障</SelectItem>
+                  <SelectItem value="circuit">电路故障</SelectItem>
+                  <SelectItem value="other">其他故障</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 故障描述 */}
+            <div className="grid grid-cols-[100px_1fr] items-start gap-4">
+              <Label className="text-right pt-2">
+                <span className="text-red-500 mr-1">*</span>
+                故障描述:
+              </Label>
+              <Textarea
+                placeholder="请描述故障情况"
+                className="min-h-[100px]"
+                value={formDescription}
+                onChange={(e) => setFormDescription(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* 底部按钮 */}
+          <div className="flex justify-end gap-3">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                resetForm()
+                setDialogOpen(false)
+              }}
+            >
+              取消
+            </Button>
+            <Button onClick={() => {
+              // 这里可以添加表单验证和提交逻辑
+              resetForm()
+              setDialogOpen(false)
+            }}>
+              确定
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
         <div className="flex items-center gap-1">
           <Button variant="default" size="sm" className="h-8 w-8 p-0">
             1
