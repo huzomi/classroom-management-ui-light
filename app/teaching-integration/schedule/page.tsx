@@ -495,7 +495,7 @@ export default function ScheduleManagementPage() {
   }, 0)
 
   return (
-    <div className="flex h-[calc(100vh-4rem)]">
+    <div className="flex h-[calc(100vh-4rem)]" suppressHydrationWarning>
       {/* Left Sidebar - Classroom Selection Tree */}
       <div className="w-64 border-r border-border bg-card flex flex-col flex-shrink-0">
         <div className="p-4 border-b border-border">
@@ -546,7 +546,7 @@ export default function ScheduleManagementPage() {
                               const floorKey = `${campusData.campus}-${building.name}-${floor.name}`
                               return (
                                 <div key={floorKey} className="mb-1">
-                                  {/* 楼层层级 */}
+                                  {/* ��层层级 */}
                                   <button
                                     onClick={() => toggleFloor(floorKey)}
                                     className="flex items-center gap-2 w-full p-2 hover:bg-accent rounded-md text-sm transition-colors"
