@@ -161,9 +161,7 @@ export default function MonitoringPage() {
     }
   }
 
-  const selectAllInFloor = (classroomIds: string[]) => {
-    setSelectedClassrooms([...new Set([...selectedClassrooms, ...classroomIds])])
-  }
+  
 
   return (
     <div className="flex h-full">
@@ -228,15 +226,6 @@ export default function MonitoringPage() {
                                       )}
                                       <Layers className="h-3 w-3 text-green-500" />
                                       <span className="text-sm">{floor.floor}</span>
-                                      <span
-                                        onClick={(e) => {
-                                          e.stopPropagation()
-                                          selectAllInFloor(floor.classrooms.map((c) => c.id))
-                                        }}
-                                        className="ml-auto text-xs text-blue-500 hover:underline cursor-pointer"
-                                      >
-                                        全选
-                                      </span>
                                     </button>
 
                                     {expandedFloors.has(floorKey) && (
