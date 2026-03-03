@@ -92,7 +92,7 @@ export default function SchedulePage() {
   }
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-[calc(100vh-4rem)]">
       {/* Left Sidebar - Classroom Selection Tree */}
       <div className="w-64 border-r border-border bg-card flex flex-col">
         <div className="p-4 border-b border-border">
@@ -193,162 +193,129 @@ export default function SchedulePage() {
 
       {/* Right Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-      {/* Header */}
-      <div className="border-b border-border bg-card px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-foreground">课表排课</h1>
-            <p className="mt-1 text-sm text-muted-foreground">教学课程安排与管理</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline">
-              <Upload className="mr-2 h-4 w-4" />
-              导入课表
-            </Button>
-            <Button variant="outline">
-              <Download className="mr-2 h-4 w-4" />
-              导出课表
-            </Button>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              新建课程
-            </Button>
+        {/* Header */}
+        <div className="border-b border-border bg-card px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-semibold text-foreground">课表管理</h1>
+              <p className="mt-1 text-sm text-muted-foreground">根据排课时间联动控制教室设备，实现教学场景智能控制</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline">
+                导入课表
+              </Button>
+              <Button variant="outline">
+                导出课表
+              </Button>
+              <Button>
+                添加课程
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-auto p-6">
-        <div className="space-y-6">
-          {/* Filters */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder="搜索课程、教师、教室..."
-                    className="pl-10"
-                  />
-                </div>
+        {/* Content */}
+        <div className="flex-1 overflow-auto p-6">
+          <div className="space-y-6">
+            {/* Week Selector and Search */}
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-primary" />
+                <span className="text-sm text-muted-foreground">教学周</span>
+                <select className="border border-border rounded-md px-3 py-1.5 text-sm bg-background">
+                  <option>第4周</option>
+                  <option>第5周</option>
+                  <option>第6周</option>
+                </select>
+                <span className="text-sm text-muted-foreground">2024-2025第二学期</span>
               </div>
-            </CardContent>
-          </Card>
+            </div>
 
-          {/* Schedule Grid */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>本周课表</CardTitle>
-                  <CardDescription>2024年第3周 (1月15日 - 1月21日)</CardDescription>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="sm">
-                    上一周
-                  </Button>
-                  <Button variant="ghost" size="sm">
-                    下一周
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-border">
-                      <th className="p-3 text-left text-sm font-medium text-muted-foreground">时间</th>
-                      {weekDays.map((day) => (
-                        <th key={day} className="p-3 text-center text-sm font-medium text-muted-foreground">
-                          {day}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {timeSlots.map((time, timeIndex) => (
-                      <tr key={time} className="border-b border-border">
-                        <td className="p-3 text-sm text-muted-foreground">
-                          <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4" />
-                            {time}
-                          </div>
-                        </td>
-                        {weekDays.map((day, dayIndex) => {
-                          const hasCourse = Math.random() > 0.3
-                          return (
-                            <td key={day} className="p-2">
-                              {hasCourse ? (
-                                <div className="rounded-lg border border-primary/30 bg-primary/10 p-3 hover:bg-primary/20 transition-colors cursor-pointer">
-                                  <p className="text-sm font-medium text-foreground">高等数学</p>
-                                  <p className="mt-1 text-xs text-muted-foreground">张老师</p>
-                                  <p className="mt-1 text-xs text-muted-foreground">101教室</p>
-                                  <Badge variant="outline" className="mt-2 text-xs border-primary/50 text-primary">
-                                    已排课
-                                  </Badge>
-                                </div>
-                              ) : (
-                                <div className="flex h-full min-h-[100px] items-center justify-center rounded-lg border border-dashed border-border hover:border-muted-foreground hover:bg-accent transition-colors cursor-pointer">
-                                  <Plus className="h-5 w-5 text-muted-foreground" />
-                                </div>
-                              )}
-                            </td>
-                          )
-                        })}
+            {/* Search */}
+            <div className="relative max-w-md">
+              <Input
+                placeholder="搜索教室、课程或教师..."
+                className="pr-10"
+              />
+              <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            </div>
+
+            {/* Stats Cards */}
+            <div className="grid grid-cols-4 gap-4">
+              <Card>
+                <CardContent className="pt-6">
+                  <p className="text-sm text-muted-foreground">本周课程</p>
+                  <p className="text-3xl font-bold text-foreground mt-1">0</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-6">
+                  <p className="text-sm text-muted-foreground">上课中</p>
+                  <p className="text-3xl font-bold text-primary mt-1">0</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-6">
+                  <p className="text-sm text-muted-foreground">待上课</p>
+                  <p className="text-3xl font-bold text-primary mt-1">0</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-6">
+                  <p className="text-sm text-muted-foreground">已结束</p>
+                  <p className="text-3xl font-bold text-foreground mt-1">0</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Schedule Grid */}
+            <Card>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-border bg-muted/30">
+                        <th className="p-3 text-left text-sm font-medium text-muted-foreground w-28">节次</th>
+                        {weekDays.map((day) => (
+                          <th key={day} className="p-3 text-center text-sm font-medium text-muted-foreground">
+                            {day}
+                          </th>
+                        ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Course List */}
-          <Card>
-            <CardHeader>
-              <CardTitle>课程列表</CardTitle>
-              <CardDescription>所有已排课程</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {[
-                  { name: "高等数学", teacher: "张老师", room: "101", time: "周一 08:00-09:40", students: 120 },
-                  { name: "大学英语", teacher: "李老师", room: "102", time: "周一 10:00-11:40", students: 80 },
-                  { name: "计算机基础", teacher: "王老师", room: "103", time: "周二 14:00-15:40", students: 100 },
-                  { name: "物理实验", teacher: "刘老师", room: "201", time: "周三 14:00-16:40", students: 45 },
-                ].map((course, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between rounded-lg border border-border bg-card p-4 hover:bg-accent transition-colors"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-                        <Calendar className="h-6 w-6 text-primary" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-foreground">{course.name}</p>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          {course.teacher} · {course.room}教室 · {course.students}人
-                        </p>
-                        <p className="mt-0.5 text-xs text-muted-foreground">{course.time}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button size="sm" variant="ghost">
-                        编辑
-                      </Button>
-                      <Button size="sm" variant="ghost">
-                        删除
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                    </thead>
+                    <tbody>
+                      {[
+                        { name: "第1节", time: "08:30-09:15" },
+                        { name: "第2节", time: "09:15-10:00" },
+                        { name: "第3节", time: "10:10-10:55" },
+                        { name: "第4节", time: "10:55-11:40" },
+                        { name: "第5节", time: "14:00-14:45" },
+                        { name: "第6节", time: "14:45-15:30" },
+                      ].map((slot) => (
+                        <tr key={slot.name} className="border-b border-border">
+                          <td className="p-3 text-sm">
+                            <div className="font-medium text-foreground">{slot.name}</div>
+                            <div className="text-xs text-muted-foreground">{slot.time}</div>
+                          </td>
+                          {weekDays.map((day) => (
+                            <td key={day} className="p-2">
+                              <div className="flex h-16 items-center justify-center rounded-lg border border-dashed border-border hover:border-primary hover:bg-primary/5 transition-colors cursor-pointer group">
+                                <div className="flex flex-col items-center text-muted-foreground group-hover:text-primary">
+                                  <Plus className="h-4 w-4" />
+                                  <span className="text-xs mt-1">添加</span>
+                                </div>
+                              </div>
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
-      </div>
       </div>
     </div>
   )
