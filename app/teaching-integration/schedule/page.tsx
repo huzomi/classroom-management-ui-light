@@ -495,7 +495,7 @@ export default function ScheduleManagementPage() {
   }, 0)
 
   return (
-    <div className="flex h-[calc(100vh-4rem)]" suppressHydrationWarning>
+    <div className="flex h-[calc(100vh-4rem)]">
       {/* Left Sidebar - Classroom Selection Tree */}
       <div className="w-64 border-r border-border bg-card flex flex-col flex-shrink-0">
         <div className="p-4 border-b border-border">
