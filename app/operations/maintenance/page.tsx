@@ -685,7 +685,7 @@ export default function MaintenancePage() {
                 </div>
               </div>
 
-              {/* 处理进度 */}
+{/* 处理进度 */}
               <div>
                 <h4 className="font-medium text-foreground mb-4">处理进度</h4>
                 <div className="relative pl-6">
@@ -701,12 +701,39 @@ export default function MaintenancePage() {
                       <p className="text-sm text-muted-foreground">{selectedTicket.reporter}提交了故障报修</p>
                     </div>
                   </div>
+
+                  {/* 已解决或不需要处理状态 - 显示处理完成记录 */}
+                  {(selectedTicket.status === "resolved" || selectedTicket.status === "no-action") && (
+                    <div className="relative pb-4">
+                      <div className="absolute left-[-20px] top-1 h-3.5 w-3.5 rounded-full bg-orange-500 border-2 border-background"></div>
+                      <div className="ml-2">
+                        <p className="text-sm text-orange-500 font-medium">2026-03-03 11:16:13</p>
+                        <p className="text-sm text-foreground mt-1">处理完成</p>
+                        <p className="text-sm text-muted-foreground">
+                          {selectedTicket.reporter}提交工单：
+                          {selectedTicket.status === "resolved" ? "已解决123456" : "不需要处理"}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
           )}
 
           {/* 底部按钮 */}
+          <div className="flex justify-end">
+            <Button variant="outline" onClick={() => setDetailDialogOpen(false)}>
+              关闭
+            </Button>
+          </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 底部按��� */}
           <div className="flex justify-end">
             <Button variant="outline" onClick={() => setDetailDialogOpen(false)}>
               关闭
