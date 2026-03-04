@@ -92,17 +92,17 @@ export function TabsProvider({ children }: { children: ReactNode }) {
       const newTabs = prev.filter(tab => tab.path !== path)
       
       // 如果关闭的是当前激活的标签，则切换到前一个或后一个标签
-      if (activeTab === path) {
+      if (pathname === path) {
         const newActiveIndex = Math.min(index, newTabs.length - 1)
         const newActiveTab = newTabs[newActiveIndex]
         if (newActiveTab) {
-          router.push(newActiveTab.path)
+          setTimeout(() => router.push(newActiveTab.path), 0)
         }
       }
       
       return newTabs
     })
-  }, [activeTab, router])
+  }, [pathname, router])
 
   // 关闭其他标签
   const removeOtherTabs = useCallback((path: string) => {
@@ -115,12 +115,23 @@ export function TabsProvider({ children }: { children: ReactNode }) {
     router.push("/")
   }, [router])
 
-  // 监听路由变化，自动添加标签
+  // 监听路由变化，自动添加标签并同步激活状态
   useEffect(() => {
     if (pathname) {
-      addTab(pathname)
+      setActiveTab(pathname)
+      setTabs(prev => {
+        const exists = prev.find(tab => tab.path === pathname)
+        if (exists) {
+          return prev
+        }
+        return [...prev, { 
+          path: pathname, 
+          title: getPageTitle(pathname), 
+          closable: pathname !== "/" 
+        }]
+      })
     }
-  }, [pathname, addTab])
+  }, [pathname, getPageTitle])
 
   return (
     <TabsContext.Provider value={{ 
