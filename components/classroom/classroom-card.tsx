@@ -8,10 +8,6 @@ import { Volume2, Check } from "lucide-react"
 import {
   User,
   BookOpen,
-  Thermometer,
-  Droplets,
-  Wind,
-  Leaf,
   MoreVertical,
   Video,
   Lightbulb,
@@ -20,10 +16,13 @@ import {
 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
+type DeviceKey = "projector" | "lights" | "ac" | "computer"
+
 interface ClassroomCardProps {
   classroom: any
   viewMode: "large" | "small" | "iot"
   onClick: () => void
+  onDeviceToggle?: (deviceKey: DeviceKey) => void
   isMultiSelectMode?: boolean
   isSelected?: boolean
   onToggleSelect?: () => void
@@ -33,6 +32,7 @@ export function ClassroomCard({
   classroom,
   viewMode,
   onClick,
+  onDeviceToggle,
   isMultiSelectMode = false,
   isSelected = false,
   onToggleSelect,
@@ -43,8 +43,8 @@ export function ClassroomCard({
     fault: {
       label: "故障",
       color: "oklch(0.55 0.22 25)",
-      bgColor: "bg-destructive/10",
-      borderColor: "border-destructive",
+      bgColor: "bg-muted/10",
+      borderColor: "border-muted",
     },
     offline: { label: "离线", color: "oklch(0.4 0 0)", bgColor: "bg-muted/10", borderColor: "border-muted" },
   }
@@ -82,36 +82,50 @@ export function ClassroomCard({
             </Badge>
           </div>
 
-          {classroom.teacher && (
-            <div className="space-y-1.5 text-xs">
-              <div className="flex items-center gap-1.5 text-muted-foreground">
-                <User className="h-3 w-3" />
-                <span>{classroom.teacher}</span>
-              </div>
-              <div className="flex items-center gap-1.5 text-muted-foreground">
-                <BookOpen className="h-3 w-3" />
-                <span className="truncate">{classroom.course}</span>
-              </div>
+          <div className="min-h-[3.25rem] space-y-1.5 text-xs border-b border-border/50 pb-2">
+            <div className="flex items-center gap-1.5 text-muted-foreground">
+              <User className="h-3 w-3 shrink-0" />
+              <span className="truncate">{classroom.teacher ?? "—"}</span>
             </div>
-          )}
+            <div className="flex items-center gap-1.5 text-muted-foreground">
+              <BookOpen className="h-3 w-3 shrink-0" />
+              <span className="truncate">{classroom.course ?? "—"}</span>
+            </div>
+          </div>
 
-          <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-border/50">
-            <div className="flex items-center gap-1.5">
-              <Thermometer className="h-3 w-3 text-orange-400" />
-              <span>{classroom.temperature}°C</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Droplets className="h-3 w-3 text-blue-400" />
-              <span>{classroom.humidity}%</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Wind className="h-3 w-3 text-gray-400" />
-              <span>{classroom.pm25}</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Leaf className="h-3 w-3 text-green-400" />
-              <span>{classroom.co2}</span>
-            </div>
+          <div className="grid grid-cols-2 gap-2 text-xs pt-2">
+            <button
+              type="button"
+              className="flex items-center gap-1.5 text-left hover:opacity-80 transition-opacity"
+              onClick={(e) => { e.stopPropagation(); onDeviceToggle?.("projector") }}
+            >
+              <Video className={`h-3 w-3 ${classroom.deviceStatus?.projector ? "text-primary" : "text-muted-foreground"}`} />
+              <span>投影 {classroom.deviceStatus?.projector ? "开" : "关"}</span>
+            </button>
+            <button
+              type="button"
+              className="flex items-center gap-1.5 text-left hover:opacity-80 transition-opacity"
+              onClick={(e) => { e.stopPropagation(); onDeviceToggle?.("lights") }}
+            >
+              <Lightbulb className={`h-3 w-3 ${classroom.deviceStatus?.lights ? "text-primary" : "text-muted-foreground"}`} />
+              <span>灯光 {classroom.deviceStatus?.lights ? "开" : "关"}</span>
+            </button>
+            <button
+              type="button"
+              className="flex items-center gap-1.5 text-left hover:opacity-80 transition-opacity"
+              onClick={(e) => { e.stopPropagation(); onDeviceToggle?.("ac") }}
+            >
+              <AirConditioner className={`h-3 w-3 ${classroom.deviceStatus?.ac ? "text-primary" : "text-muted-foreground"}`} />
+              <span>空调 {classroom.deviceStatus?.ac ? "开" : "关"}</span>
+            </button>
+            <button
+              type="button"
+              className="flex items-center gap-1.5 text-left hover:opacity-80 transition-opacity"
+              onClick={(e) => { e.stopPropagation(); onDeviceToggle?.("computer") }}
+            >
+              <Monitor className={`h-3 w-3 ${classroom.deviceStatus?.computer ? "text-primary" : "text-muted-foreground"}`} />
+              <span>电脑 {classroom.deviceStatus?.computer ? "开" : "关"}</span>
+            </button>
           </div>
         </div>
       </Card>
@@ -163,7 +177,11 @@ export function ClassroomCard({
 
           {/* IoT Controls */}
           <div className="grid grid-cols-4 gap-2">
-            <button className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-secondary/50 transition-colors border border-border/50">
+            <button
+              type="button"
+              className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-secondary/50 transition-colors border border-border/50"
+              onClick={(e) => { e.stopPropagation(); onDeviceToggle?.("projector") }}
+            >
               <div className={`p-2 rounded-md ${classroom.deviceStatus.projector ? "bg-info/20" : "bg-secondary"}`}>
                 <Video
                   className={`h-5 w-5 ${classroom.deviceStatus.projector ? "text-info" : "text-muted-foreground"}`}
@@ -171,7 +189,11 @@ export function ClassroomCard({
               </div>
               <span className="text-xs text-foreground">投影</span>
             </button>
-            <button className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-secondary/50 transition-colors border border-border/50">
+            <button
+              type="button"
+              className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-secondary/50 transition-colors border border-border/50"
+              onClick={(e) => { e.stopPropagation(); onDeviceToggle?.("lights") }}
+            >
               <div className={`p-2 rounded-md ${classroom.deviceStatus.lights ? "bg-warning/20" : "bg-secondary"}`}>
                 <Lightbulb
                   className={`h-5 w-5 ${classroom.deviceStatus.lights ? "text-warning" : "text-muted-foreground"}`}
@@ -179,7 +201,11 @@ export function ClassroomCard({
               </div>
               <span className="text-xs text-foreground">灯光</span>
             </button>
-            <button className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-secondary/50 transition-colors border border-border/50">
+            <button
+              type="button"
+              className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-secondary/50 transition-colors border border-border/50"
+              onClick={(e) => { e.stopPropagation(); onDeviceToggle?.("ac") }}
+            >
               <div className={`p-2 rounded-md ${classroom.deviceStatus.ac ? "bg-cyan-500/20" : "bg-secondary"}`}>
                 <AirConditioner
                   className={`h-5 w-5 ${classroom.deviceStatus.ac ? "text-cyan-400" : "text-muted-foreground"}`}
@@ -187,7 +213,11 @@ export function ClassroomCard({
               </div>
               <span className="text-xs text-foreground">空调</span>
             </button>
-            <button className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-secondary/50 transition-colors border border-border/50">
+            <button
+              type="button"
+              className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-secondary/50 transition-colors border border-border/50"
+              onClick={(e) => { e.stopPropagation(); onDeviceToggle?.("computer") }}
+            >
               <div className={`p-2 rounded-md ${classroom.deviceStatus.computer ? "bg-success/20" : "bg-secondary"}`}>
                 <Monitor
                   className={`h-5 w-5 ${classroom.deviceStatus.computer ? "text-success" : "text-muted-foreground"}`}
@@ -261,62 +291,80 @@ export function ClassroomCard({
           </DropdownMenu>
         </div>
 
-        {/* Course Info */}
-        {classroom.teacher && (
-          <div className="space-y-2 py-2.5 border-y border-border/50">
-            <div className="flex items-center gap-2 text-sm">
-              <div className="p-1.5 rounded bg-secondary/50">
-                <User className="h-3.5 w-3.5 text-primary" />
-              </div>
-              <span className="text-foreground font-medium">{classroom.teacher}</span>
+        {/* Course Info - 固定高度保持卡片统一 */}
+        <div className="min-h-[4.5rem] space-y-2 py-2.5 border-y border-border/50">
+          <div className="flex items-center gap-2 text-sm">
+            <div className="p-1.5 rounded bg-secondary/50 shrink-0">
+              <User className="h-3.5 w-3.5 text-primary" />
             </div>
-            <div className="flex items-center gap-2 text-sm">
-              <div className="p-1.5 rounded bg-secondary/50">
-                <BookOpen className="h-3.5 w-3.5 text-primary" />
-              </div>
-              <span className="text-foreground">{classroom.course}</span>
-            </div>
+            <span className={`truncate ${classroom.teacher ? "text-foreground font-medium" : "text-muted-foreground"}`}>
+              {classroom.teacher ?? "—"}
+            </span>
           </div>
-        )}
+          <div className="flex items-center gap-2 text-sm">
+            <div className="p-1.5 rounded bg-secondary/50 shrink-0">
+              <BookOpen className="h-3.5 w-3.5 text-primary" />
+            </div>
+            <span className={`truncate ${classroom.course ? "text-foreground" : "text-muted-foreground"}`}>
+              {classroom.course ?? "—"}
+            </span>
+          </div>
+        </div>
 
-        {/* Environmental Data */}
+        {/* 设备及开关状态 - 点击可快速切换 */}
         <div className="grid grid-cols-2 gap-2.5">
-          <div className="flex items-center gap-2 p-2 rounded-lg bg-secondary/30 border border-border/50">
-            <div className="p-1.5 rounded-md bg-orange-500/20">
-              <Thermometer className="h-3.5 w-3.5 text-orange-400" />
+          <button
+            type="button"
+            className="flex items-center gap-2 p-2 rounded-lg bg-secondary/30 border border-border/50 text-left hover:bg-secondary/50 transition-colors"
+            onClick={(e) => { e.stopPropagation(); onDeviceToggle?.("projector") }}
+          >
+            <div className={`p-1.5 rounded-md ${classroom.deviceStatus?.projector ? "bg-primary/20" : "bg-muted"}`}>
+              <Video className={`h-3.5 w-3.5 ${classroom.deviceStatus?.projector ? "text-primary" : "text-muted-foreground"}`} />
             </div>
             <div className="text-xs">
-              <div className="font-semibold text-foreground">{classroom.temperature}°C</div>
-              <div className="text-muted-foreground">温度</div>
+              <div className="font-semibold text-foreground">投影</div>
+              <div className="text-muted-foreground">{classroom.deviceStatus?.projector ? "开" : "关"}</div>
             </div>
-          </div>
-          <div className="flex items-center gap-2 p-2 rounded-lg bg-secondary/30 border border-border/50">
-            <div className="p-1.5 rounded-md bg-blue-500/20">
-              <Droplets className="h-3.5 w-3.5 text-blue-400" />
-            </div>
-            <div className="text-xs">
-              <div className="font-semibold text-foreground">{classroom.humidity}%</div>
-              <div className="text-muted-foreground">湿度</div>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 p-2 rounded-lg bg-secondary/30 border border-border/50">
-            <div className="p-1.5 rounded-md bg-gray-500/20">
-              <Wind className="h-3.5 w-3.5 text-gray-400" />
+          </button>
+          <button
+            type="button"
+            className="flex items-center gap-2 p-2 rounded-lg bg-secondary/30 border border-border/50 text-left hover:bg-secondary/50 transition-colors"
+            onClick={(e) => { e.stopPropagation(); onDeviceToggle?.("lights") }}
+          >
+            <div className={`p-1.5 rounded-md ${classroom.deviceStatus?.lights ? "bg-primary/20" : "bg-muted"}`}>
+              <Lightbulb className={`h-3.5 w-3.5 ${classroom.deviceStatus?.lights ? "text-primary" : "text-muted-foreground"}`} />
             </div>
             <div className="text-xs">
-              <div className="font-semibold text-foreground">{classroom.pm25}</div>
-              <div className="text-muted-foreground">PM2.5</div>
+              <div className="font-semibold text-foreground">灯光</div>
+              <div className="text-muted-foreground">{classroom.deviceStatus?.lights ? "开" : "关"}</div>
             </div>
-          </div>
-          <div className="flex items-center gap-2 p-2 rounded-lg bg-secondary/30 border border-border/50">
-            <div className="p-1.5 rounded-md bg-green-500/20">
-              <Leaf className="h-3.5 w-3.5 text-green-400" />
+          </button>
+          <button
+            type="button"
+            className="flex items-center gap-2 p-2 rounded-lg bg-secondary/30 border border-border/50 text-left hover:bg-secondary/50 transition-colors"
+            onClick={(e) => { e.stopPropagation(); onDeviceToggle?.("ac") }}
+          >
+            <div className={`p-1.5 rounded-md ${classroom.deviceStatus?.ac ? "bg-primary/20" : "bg-muted"}`}>
+              <AirConditioner className={`h-3.5 w-3.5 ${classroom.deviceStatus?.ac ? "text-primary" : "text-muted-foreground"}`} />
             </div>
             <div className="text-xs">
-              <div className="font-semibold text-foreground">{classroom.co2}</div>
-              <div className="text-muted-foreground">CO₂</div>
+              <div className="font-semibold text-foreground">空调</div>
+              <div className="text-muted-foreground">{classroom.deviceStatus?.ac ? "开" : "关"}</div>
             </div>
-          </div>
+          </button>
+          <button
+            type="button"
+            className="flex items-center gap-2 p-2 rounded-lg bg-secondary/30 border border-border/50 text-left hover:bg-secondary/50 transition-colors"
+            onClick={(e) => { e.stopPropagation(); onDeviceToggle?.("computer") }}
+          >
+            <div className={`p-1.5 rounded-md ${classroom.deviceStatus?.computer ? "bg-primary/20" : "bg-muted"}`}>
+              <Monitor className={`h-3.5 w-3.5 ${classroom.deviceStatus?.computer ? "text-primary" : "text-muted-foreground"}`} />
+            </div>
+            <div className="text-xs">
+              <div className="font-semibold text-foreground">电脑</div>
+              <div className="text-muted-foreground">{classroom.deviceStatus?.computer ? "开" : "关"}</div>
+            </div>
+          </button>
         </div>
       </div>
     </Card>

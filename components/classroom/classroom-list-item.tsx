@@ -3,11 +3,14 @@
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { User, BookOpen, Thermometer, Droplets, Wind, Leaf, Activity, MoreVertical, Check } from "lucide-react"
+import { User, BookOpen, Video, Lightbulb, AirVentIcon as AirConditioner, Monitor, Activity, MoreVertical, Check } from "lucide-react"
+
+type DeviceKey = "projector" | "lights" | "ac" | "computer"
 
 interface ClassroomListItemProps {
   classroom: any
   onClick: () => void
+  onDeviceToggle?: (deviceKey: DeviceKey) => void
   isMultiSelectMode?: boolean
   isSelected?: boolean
   onToggleSelect?: () => void
@@ -16,6 +19,7 @@ interface ClassroomListItemProps {
 export function ClassroomListItem({
   classroom,
   onClick,
+  onDeviceToggle,
   isMultiSelectMode = false,
   isSelected = false,
   onToggleSelect,
@@ -23,7 +27,7 @@ export function ClassroomListItem({
   const statusConfig = {
     "in-class": { label: "上课中", color: "oklch(0.65 0.19 230)", textColor: "text-info" },
     idle: { label: "空闲", color: "oklch(0.65 0.18 145)", textColor: "text-success" },
-    fault: { label: "故障", color: "oklch(0.55 0.22 25)", textColor: "text-destructive" },
+    fault: { label: "故障", color: "oklch(0.4 0 0)", textColor: "text-destructive" },
     offline: { label: "离线", color: "oklch(0.4 0 0)", textColor: "text-muted-foreground" },
   }
 
@@ -68,37 +72,57 @@ export function ClassroomListItem({
         </div>
 
         <div className="flex items-center gap-4 flex-1 min-w-[200px]">
-          {classroom.teacher && (
-            <>
-              <div className="flex items-center gap-2 text-sm">
-                <User className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-foreground">{classroom.teacher}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm max-w-[180px]">
-                <BookOpen className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-foreground truncate">{classroom.course}</span>
-              </div>
-            </>
-          )}
+          <div className="flex items-center gap-2 text-sm min-w-0">
+            <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <span className={classroom.teacher ? "text-foreground" : "text-muted-foreground"}>
+              {classroom.teacher ?? "—"}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 text-sm max-w-[180px] min-w-0">
+            <BookOpen className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <span className={`truncate ${classroom.course ? "text-foreground" : "text-muted-foreground"}`}>
+              {classroom.course ?? "—"}
+            </span>
+          </div>
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1.5 text-sm">
-            <Thermometer className="h-3.5 w-3.5 text-orange-400" />
-            <span className="font-medium">{classroom.temperature}°C</span>
-          </div>
-          <div className="flex items-center gap-1.5 text-sm">
-            <Droplets className="h-3.5 w-3.5 text-blue-400" />
-            <span className="font-medium">{classroom.humidity}%</span>
-          </div>
-          <div className="flex items-center gap-1.5 text-sm">
-            <Wind className="h-3.5 w-3.5 text-gray-400" />
-            <span className="font-medium">{classroom.pm25}</span>
-          </div>
-          <div className="flex items-center gap-1.5 text-sm">
-            <Leaf className="h-3.5 w-3.5 text-green-400" />
-            <span className="font-medium">{classroom.co2}</span>
-          </div>
+          <button
+            type="button"
+            className="flex items-center gap-1.5 text-sm hover:opacity-80 transition-opacity"
+            onClick={(e) => { e.stopPropagation(); onDeviceToggle?.("projector") }}
+          >
+            <Video className={`h-3.5 w-3.5 ${classroom.deviceStatus?.projector ? "text-primary" : "text-muted-foreground"}`} />
+            <span className="text-muted-foreground">投影</span>
+            <span className="font-medium">{classroom.deviceStatus?.projector ? "开" : "关"}</span>
+          </button>
+          <button
+            type="button"
+            className="flex items-center gap-1.5 text-sm hover:opacity-80 transition-opacity"
+            onClick={(e) => { e.stopPropagation(); onDeviceToggle?.("lights") }}
+          >
+            <Lightbulb className={`h-3.5 w-3.5 ${classroom.deviceStatus?.lights ? "text-primary" : "text-muted-foreground"}`} />
+            <span className="text-muted-foreground">灯光</span>
+            <span className="font-medium">{classroom.deviceStatus?.lights ? "开" : "关"}</span>
+          </button>
+          <button
+            type="button"
+            className="flex items-center gap-1.5 text-sm hover:opacity-80 transition-opacity"
+            onClick={(e) => { e.stopPropagation(); onDeviceToggle?.("ac") }}
+          >
+            <AirConditioner className={`h-3.5 w-3.5 ${classroom.deviceStatus?.ac ? "text-primary" : "text-muted-foreground"}`} />
+            <span className="text-muted-foreground">空调</span>
+            <span className="font-medium">{classroom.deviceStatus?.ac ? "开" : "关"}</span>
+          </button>
+          <button
+            type="button"
+            className="flex items-center gap-1.5 text-sm hover:opacity-80 transition-opacity"
+            onClick={(e) => { e.stopPropagation(); onDeviceToggle?.("computer") }}
+          >
+            <Monitor className={`h-3.5 w-3.5 ${classroom.deviceStatus?.computer ? "text-primary" : "text-muted-foreground"}`} />
+            <span className="text-muted-foreground">电脑</span>
+            <span className="font-medium">{classroom.deviceStatus?.computer ? "开" : "关"}</span>
+          </button>
         </div>
 
         {/* Device status and actions */}
