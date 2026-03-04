@@ -99,19 +99,24 @@ export function PlatformSidebar() {
     <TooltipProvider delayDuration={0}>
       <div 
         className={cn(
-          "flex h-screen flex-col border-r border-sidebar-border bg-sidebar transition-all duration-300",
+          "flex h-screen flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-300 ease-in-out overflow-hidden",
           isCollapsed ? "w-16" : "w-52"
         )}
       >
         {/* Header */}
-        <div className="flex h-14 items-center border-b border-sidebar-border px-4">
-          <Link href="/" className="flex items-center gap-2">
+        <div className="flex h-14 items-center border-b border-sidebar-border px-4 overflow-hidden">
+          <Link href="/" className="flex items-center gap-2 overflow-hidden">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary flex-shrink-0">
               <LayoutGrid className="h-5 w-5 text-primary-foreground" />
             </div>
-            {!isCollapsed && (
-              <span className="text-lg font-semibold text-sidebar-foreground whitespace-nowrap">智慧运维</span>
-            )}
+            <span 
+              className={cn(
+                "text-lg font-semibold text-sidebar-foreground whitespace-nowrap transition-all duration-300 ease-in-out",
+                isCollapsed ? "opacity-0 w-0" : "opacity-100 w-auto"
+              )}
+            >
+              智慧运维
+            </span>
           </Link>
         </div>
 
@@ -187,40 +192,40 @@ export function PlatformSidebar() {
 
             // 展开状态下的渲染
             return (
-              <div key={item.title}>
+              <div key={item.title} className="overflow-hidden">
                 {hasSubItems ? (
                   <button
                     onClick={() => toggleExpand(item.title)}
                     className={cn(
-                      "flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                      "flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition-colors overflow-hidden",
                       hasActiveChild || isExpanded
                         ? "bg-sidebar-accent/50 text-sidebar-foreground"
                         : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
                     )}
                   >
-                    <div className="flex items-center gap-3">
-                      <Icon className="h-4 w-4" />
-                      <span>{item.title}</span>
+                    <div className="flex items-center gap-3 overflow-hidden">
+                      <Icon className="h-4 w-4 flex-shrink-0" />
+                      <span className="whitespace-nowrap overflow-hidden text-ellipsis">{item.title}</span>
                     </div>
-                    <ChevronDown className={cn("h-4 w-4 transition-transform", isExpanded ? "rotate-180" : "")} />
+                    <ChevronDown className={cn("h-4 w-4 flex-shrink-0 transition-transform duration-200", isExpanded ? "rotate-180" : "")} />
                   </button>
                 ) : (
                   <Link
                     href={item.href!}
                     className={cn(
-                      "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                      "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors overflow-hidden",
                       isActive
                         ? "bg-sidebar-accent text-sidebar-accent-foreground"
                         : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
                     )}
                   >
-                    <Icon className="h-4 w-4" />
-                    <span>{item.title}</span>
+                    <Icon className="h-4 w-4 flex-shrink-0" />
+                    <span className="whitespace-nowrap overflow-hidden text-ellipsis">{item.title}</span>
                   </Link>
                 )}
 
                 {hasSubItems && isExpanded && (
-                  <div className="ml-4 mt-1 space-y-1 border-l border-sidebar-border pl-3">
+                  <div className="ml-4 mt-1 space-y-1 border-l border-sidebar-border pl-3 overflow-hidden">
                     {item.subItems!.map((subItem) => {
                       const isSubActive = pathname === subItem.href
 
@@ -229,7 +234,7 @@ export function PlatformSidebar() {
                           key={subItem.href}
                           href={subItem.href}
                           className={cn(
-                            "flex items-center rounded-lg px-3 py-1.5 text-sm transition-colors",
+                            "flex items-center rounded-lg px-3 py-1.5 text-sm transition-colors whitespace-nowrap overflow-hidden text-ellipsis",
                             isSubActive
                               ? "bg-sidebar-accent text-sidebar-accent-foreground"
                               : "text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
