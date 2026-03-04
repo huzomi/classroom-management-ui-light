@@ -11,6 +11,7 @@ interface TreeNode {
   children?: TreeNode[]
 }
 
+// 层级：校区 -> 教学楼 -> 楼层（不展示教室）
 const mockTreeData: TreeNode[] = [
   {
     id: "campus-1",
@@ -22,32 +23,9 @@ const mockTreeData: TreeNode[] = [
         label: "第一教学楼",
         type: "building",
         children: [
-          {
-            id: "floor-1-1",
-            label: "1层",
-            type: "floor",
-            children: [
-              { id: "room-101", label: "101教室", type: "classroom" },
-              { id: "room-102", label: "102教室", type: "classroom" },
-              { id: "room-103", label: "103教室", type: "classroom" },
-              { id: "room-104", label: "104教室", type: "classroom" },
-            ],
-          },
-          {
-            id: "floor-1-2",
-            label: "2层",
-            type: "floor",
-            children: [
-              { id: "room-201", label: "201教室", type: "classroom" },
-              { id: "room-202", label: "202教室", type: "classroom" },
-            ],
-          },
-          {
-            id: "floor-1-3",
-            label: "3层",
-            type: "floor",
-            children: [],
-          },
+          { id: "floor-1-1", label: "1层", type: "floor", children: [] },
+          { id: "floor-1-2", label: "2层", type: "floor", children: [] },
+          { id: "floor-1-3", label: "3层", type: "floor", children: [] },
         ],
       },
       {
@@ -55,18 +33,8 @@ const mockTreeData: TreeNode[] = [
         label: "实验楼",
         type: "building",
         children: [
-          {
-            id: "floor-2-1",
-            label: "1层",
-            type: "floor",
-            children: [],
-          },
-          {
-            id: "floor-2-2",
-            label: "2层",
-            type: "floor",
-            children: [],
-          },
+          { id: "floor-2-1", label: "1层", type: "floor", children: [] },
+          { id: "floor-2-2", label: "2层", type: "floor", children: [] },
         ],
       },
     ],
@@ -80,14 +48,7 @@ const mockTreeData: TreeNode[] = [
         id: "building-3",
         label: "综合楼",
         type: "building",
-        children: [
-          {
-            id: "floor-3-1",
-            label: "1层",
-            type: "floor",
-            children: [],
-          },
-        ],
+        children: [{ id: "floor-3-1", label: "1层", type: "floor", children: [] }],
       },
     ],
   },

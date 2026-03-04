@@ -103,7 +103,7 @@ export function PlatformSidebar() {
         </Link>
       </div>
 
-      <nav className="flex-1 space-y-1 overflow-y-auto p-2">
+      <nav className="scrollbar-hide flex-1 space-y-1 overflow-y-auto p-2">
         {navItems.map((item) => {
           const Icon = item.icon
           const hasSubItems = item.subItems && item.subItems.length > 0
