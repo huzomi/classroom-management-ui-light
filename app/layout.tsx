@@ -5,6 +5,9 @@ import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 import { PlatformSidebar } from "@/components/layout/platform-sidebar"
 import { PlatformHeader } from "@/components/layout/platform-header"
+import { SidebarProvider } from "@/components/layout/sidebar-context"
+import { TabsProvider } from "@/components/layout/tabs-context"
+import { TabsNav } from "@/components/layout/tabs-nav"
 
 const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
@@ -40,13 +43,18 @@ export default function RootLayout({
   return (
     <html lang="zh-CN">
       <body className={`font-sans antialiased`}>
-        <div className="flex h-screen overflow-hidden bg-background">
-          <PlatformSidebar />
-          <div className="flex flex-1 flex-col overflow-hidden">
-            <PlatformHeader />
-            <main className="flex-1 overflow-auto">{children}</main>
-          </div>
-        </div>
+        <SidebarProvider>
+          <TabsProvider>
+            <div className="flex h-screen overflow-hidden bg-background">
+              <PlatformSidebar />
+              <div className="flex flex-1 flex-col overflow-hidden">
+                <PlatformHeader />
+                <TabsNav />
+                <main className="flex-1 overflow-auto">{children}</main>
+              </div>
+            </div>
+          </TabsProvider>
+        </SidebarProvider>
         <Analytics />
       </body>
     </html>
