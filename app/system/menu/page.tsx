@@ -3,21 +3,15 @@
 import * as React from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   Plus,
   ChevronDown,
   ChevronUp,
   Search,
-  RotateCcw,
   RefreshCw,
-  Columns3,
-  Settings2,
-  Maximize2,
+  Wrench,
+  Settings,
   Info,
 } from "lucide-react"
 import { MenuTable } from "@/components/system/menu-table"
@@ -161,9 +155,11 @@ const mockMenuData: MenuItem[] = [
 
 export default function MenuManagementPage() {
   const [searchName, setSearchName] = React.useState("")
+  const [selectedType, setSelectedType] = React.useState<string>("")
   const [selectedIds, setSelectedIds] = React.useState<string[]>([])
   const [expandedIds, setExpandedIds] = React.useState<string[]>([])
   const [menuData, setMenuData] = React.useState<MenuItem[]>(mockMenuData)
+  const [pageSize, setPageSize] = React.useState(10)
 
   // 获取所有菜单项的 ID
   const getAllIds = (items: MenuItem[]): string[] => {
@@ -204,6 +200,7 @@ export default function MenuManagementPage() {
   // 重置
   const handleReset = () => {
     setSearchName("")
+    setSelectedType("")
     setMenuData(mockMenuData)
     setSelectedIds([])
   }
@@ -256,106 +253,114 @@ export default function MenuManagementPage() {
     setExpandedIds([])
   }
 
+  const totalItems = getAllIds(menuData).length
+
   return (
-    <div className="flex flex-col gap-4 p-4">
-      {/* 搜索区域 */}
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2">
-          <span className="whitespace-nowrap text-sm text-foreground">菜单名称：</span>
-          <Input
-            placeholder="请输入菜单名称"
-            value={searchName}
-            onChange={(e) => setSearchName(e.target.value)}
-            className="w-64"
-            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+    <main className="flex-1 overflow-auto p-6">
+      <div className="space-y-4">
+        {/* 筛选栏 */}
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground whitespace-nowrap">菜单名称:</span>
+            <Input
+              placeholder="请输入菜单名称"
+              value={searchName}
+              onChange={(e) => setSearchName(e.target.value)}
+              className="w-48"
+              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground whitespace-nowrap">菜单类型:</span>
+            <Select value={selectedType} onValueChange={setSelectedType}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="请选择菜单类型" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="level1">一级菜单</SelectItem>
+                <SelectItem value="child">子菜单</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <Button onClick={handleSearch}>
+            <Search className="h-4 w-4 mr-1" />
+            查询
+          </Button>
+          <Button variant="outline" onClick={handleReset}>
+            <RefreshCw className="h-4 w-4 mr-1" />
+            重置
+          </Button>
+        </div>
+
+        {/* 工具栏 */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Button onClick={handleAddMenu}>
+              <Plus className="h-4 w-4 mr-1" />
+              新增
+            </Button>
+            <Button variant="secondary" onClick={handleExpandAll}>
+              <ChevronDown className="h-4 w-4 mr-1" />
+              展开全部
+            </Button>
+            <Button variant="secondary" onClick={handleCollapseAll}>
+              <ChevronUp className="h-4 w-4 mr-1" />
+              折叠全部
+            </Button>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" onClick={handleRefresh}>
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon">
+              <Wrench className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon">
+              <Settings className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* 选中提示 */}
+        <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/30 px-4 py-2 rounded">
+          <Info className="h-4 w-4" />
+          <span>{selectedIds.length > 0 ? `已选中 ${selectedIds.length} 条数据` : "未选中任何数据"}</span>
+        </div>
+
+        {/* 表格 */}
+        <div className="border border-border rounded-lg overflow-hidden">
+          <MenuTable
+            data={menuData}
+            selectedIds={selectedIds}
+            expandedIds={expandedIds}
+            onSelect={setSelectedIds}
+            onToggleExpand={handleToggleExpand}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onAddChild={handleAddChild}
           />
         </div>
-        <Button onClick={handleSearch}>
-          <Search className="size-4" />
-          查询
-        </Button>
-        <Button variant="outline" onClick={handleReset}>
-          <RotateCcw className="size-4" />
-          重置
-        </Button>
-      </div>
 
-      {/* 操作按钮区域 */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Button onClick={handleAddMenu}>
-            <Plus className="size-4" />
-            新增菜单
-          </Button>
-          <Button variant="secondary" onClick={handleExpandAll}>
-            <ChevronDown className="size-4" />
-            展开全部
-          </Button>
-          <Button variant="secondary" onClick={handleCollapseAll}>
-            <ChevronUp className="size-4" />
-            折叠全部
-          </Button>
-        </div>
-
-        <div className="flex items-center gap-1">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={handleRefresh}>
-                <RefreshCw className="size-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>刷新</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <Columns3 className="size-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>密度</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <Settings2 className="size-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>列设置</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <Maximize2 className="size-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>全屏</TooltipContent>
-          </Tooltip>
+        {/* 分页 */}
+        <div className="flex items-center justify-end gap-4">
+          <span className="text-sm text-muted-foreground">共 {totalItems} 条数据</span>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="sm" className="h-8 w-8 p-0 bg-primary text-primary-foreground">
+              1
+            </Button>
+          </div>
+          <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+            <SelectTrigger className="w-24 h-8">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="10">10 条/页</SelectItem>
+              <SelectItem value="20">20 条/页</SelectItem>
+              <SelectItem value="50">50 条/页</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
-
-      {/* 选中提示 */}
-      <div className="flex items-center gap-2 rounded-md bg-muted/50 px-3 py-2 text-sm">
-        <Info className="size-4 text-primary" />
-        <span className="text-muted-foreground">
-          {selectedIds.length > 0
-            ? `已选中 ${selectedIds.length} 条数据`
-            : "未选中任何数据"}
-        </span>
-      </div>
-
-      {/* 表格 */}
-      <div className="rounded-md border border-border bg-card">
-        <MenuTable
-          data={menuData}
-          selectedIds={selectedIds}
-          expandedIds={expandedIds}
-          onSelect={setSelectedIds}
-          onToggleExpand={handleToggleExpand}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-          onAddChild={handleAddChild}
-        />
-      </div>
-    </div>
+    </main>
   )
 }

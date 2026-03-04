@@ -3,7 +3,7 @@
 import { useState } from "react"
 // 操作日志页面
 import { Button } from "@/components/ui/button"
-import { Download, Search, RotateCw, Wrench, Settings } from "lucide-react"
+import { Download, Search, RefreshCw, Wrench, Settings, ChevronUp, ChevronDown, Info, Trash2 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 
@@ -23,47 +23,37 @@ const logsData = [
 
 export default function OperationLogsPage() {
   const [operationType, setOperationType] = useState<string>("")
+  const [searchClassroom, setSearchClassroom] = useState("")
+  const [selectedRows, setSelectedRows] = useState<number[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
-  const [jumpPage, setJumpPage] = useState("")
   
   const totalRecords = 1667
-  const totalPages = Math.ceil(totalRecords / pageSize)
 
   const handleReset = () => {
     setOperationType("")
+    setSearchClassroom("")
   }
 
-  const handleJump = () => {
-    const page = parseInt(jumpPage)
-    if (page >= 1 && page <= totalPages) {
-      setCurrentPage(page)
-      setJumpPage("")
-    }
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) setSelectedRows(logsData.map((l) => l.id))
+    else setSelectedRows([])
   }
 
-  // 生成页码数组
-  const getPageNumbers = () => {
-    const pages: (number | string)[] = []
-    if (totalPages <= 7) {
-      for (let i = 1; i <= totalPages; i++) pages.push(i)
-    } else {
-      pages.push(1, 2, 3, 4, 5)
-      pages.push("...")
-      pages.push(totalPages)
-    }
-    return pages
+  const handleSelectRow = (id: number, checked: boolean) => {
+    if (checked) setSelectedRows([...selectedRows, id])
+    else setSelectedRows(selectedRows.filter((rid) => rid !== id))
   }
 
   return (
-    <div className="flex-1 overflow-auto bg-background p-6">
+    <main className="flex-1 overflow-auto p-6">
       <div className="space-y-4">
         {/* 筛选栏 */}
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">操作类型:</span>
+            <span className="text-sm text-muted-foreground whitespace-nowrap">操作类型:</span>
             <Select value={operationType} onValueChange={setOperationType}>
-              <SelectTrigger className="w-[200px]">
+              <SelectTrigger className="w-48">
                 <SelectValue placeholder="请选择操作类型" />
               </SelectTrigger>
               <SelectContent>
@@ -74,25 +64,42 @@ export default function OperationLogsPage() {
               </SelectContent>
             </Select>
           </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground whitespace-nowrap">教室:</span>
+            <Input
+              placeholder="请输入教室"
+              value={searchClassroom}
+              onChange={(e) => setSearchClassroom(e.target.value)}
+              className="w-48"
+            />
+          </div>
           <Button>
             <Search className="h-4 w-4 mr-1" />
             查询
           </Button>
           <Button variant="outline" onClick={handleReset}>
-            <RotateCw className="h-4 w-4 mr-1" />
+            <RefreshCw className="h-4 w-4 mr-1" />
             重置
           </Button>
         </div>
 
         {/* 工具栏 */}
         <div className="flex items-center justify-between">
-          <Button variant="default">
-            <Download className="h-4 w-4 mr-1" />
-            导出
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button>
+              <Download className="h-4 w-4 mr-1" />
+              导出
+            </Button>
+            {selectedRows.length > 0 && (
+              <Button variant="outline" className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive">
+                <Trash2 className="h-4 w-4 mr-1" />
+                批量删除
+              </Button>
+            )}
+          </div>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon">
-              <RotateCw className="h-4 w-4" />
+              <RefreshCw className="h-4 w-4" />
             </Button>
             <Button variant="ghost" size="icon">
               <Wrench className="h-4 w-4" />
@@ -103,22 +110,60 @@ export default function OperationLogsPage() {
           </div>
         </div>
 
+        {/* 选中提示 */}
+        <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/30 px-4 py-2 rounded">
+          <Info className="h-4 w-4" />
+          <span>{selectedRows.length > 0 ? `已选中 ${selectedRows.length} 条数据` : "未选中任何数据"}</span>
+        </div>
+
         {/* 表格 */}
         <div className="border border-border rounded-lg overflow-hidden">
           <table className="w-full">
             <thead>
               <tr className="border-b border-border bg-muted/30">
-                <th className="p-3 text-center text-sm font-medium text-muted-foreground">教室</th>
+                <th className="p-3 text-center w-12">
+                  <input
+                    type="checkbox"
+                    checked={selectedRows.length === logsData.length && logsData.length > 0}
+                    onChange={(e) => handleSelectAll(e.target.checked)}
+                    className="h-4 w-4"
+                  />
+                </th>
+                <th className="p-3 text-center text-sm font-medium text-muted-foreground">
+                  <div className="flex items-center justify-center gap-1">
+                    教室
+                    <div className="flex flex-col">
+                      <ChevronUp className="h-3 w-3" />
+                      <ChevronDown className="h-3 w-3 -mt-1" />
+                    </div>
+                  </div>
+                </th>
                 <th className="p-3 text-center text-sm font-medium text-muted-foreground">操作类型</th>
                 <th className="p-3 text-center text-sm font-medium text-muted-foreground">操作内容</th>
                 <th className="p-3 text-center text-sm font-medium text-muted-foreground">IP地址</th>
                 <th className="p-3 text-center text-sm font-medium text-muted-foreground">客户端类型</th>
-                <th className="p-3 text-center text-sm font-medium text-muted-foreground">操作时间</th>
+                <th className="p-3 text-center text-sm font-medium text-muted-foreground">
+                  <div className="flex items-center justify-center gap-1">
+                    操作时间
+                    <div className="flex flex-col">
+                      <ChevronUp className="h-3 w-3" />
+                      <ChevronDown className="h-3 w-3 -mt-1" />
+                    </div>
+                  </div>
+                </th>
               </tr>
             </thead>
             <tbody>
               {logsData.map((log) => (
                 <tr key={log.id} className="border-b border-border hover:bg-muted/20">
+                  <td className="p-3 text-center">
+                    <input
+                      type="checkbox"
+                      checked={selectedRows.includes(log.id)}
+                      onChange={(e) => handleSelectRow(log.id, e.target.checked)}
+                      className="h-4 w-4"
+                    />
+                  </td>
                   <td className="p-3 text-center text-sm text-foreground">{log.classroom}</td>
                   <td className="p-3 text-center text-sm text-foreground">{log.operationType}</td>
                   <td className="p-3 text-center text-sm text-primary">{log.content}</td>
@@ -132,34 +177,15 @@ export default function OperationLogsPage() {
         </div>
 
         {/* 分页 */}
-        <div className="flex items-center justify-end gap-2">
+        <div className="flex items-center justify-end gap-4">
           <span className="text-sm text-muted-foreground">共 {totalRecords} 条数据</span>
           <div className="flex items-center gap-1">
-            {getPageNumbers().map((page, index) => (
-              <button
-                key={index}
-                onClick={() => typeof page === "number" && setCurrentPage(page)}
-                className={`min-w-[32px] h-8 px-2 text-sm rounded border ${
-                  page === currentPage
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : typeof page === "number"
-                    ? "border-border hover:bg-accent"
-                    : "border-transparent cursor-default"
-                }`}
-                disabled={typeof page !== "number"}
-              >
-                {page}
-              </button>
-            ))}
-            <button
-              onClick={() => setCurrentPage(Math.min(currentPage + 1, totalPages))}
-              className="min-w-[32px] h-8 px-2 text-sm rounded border border-border hover:bg-accent"
-            >
-              {">"}
-            </button>
+            <Button variant="outline" size="sm" className="h-8 w-8 p-0 bg-primary text-primary-foreground">
+              1
+            </Button>
           </div>
           <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
-            <SelectTrigger className="w-[100px]">
+            <SelectTrigger className="w-24 h-8">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -168,16 +194,8 @@ export default function OperationLogsPage() {
               <SelectItem value="50">50 条/页</SelectItem>
             </SelectContent>
           </Select>
-          <span className="text-sm text-muted-foreground">跳至</span>
-          <Input
-            className="w-16 h-8"
-            value={jumpPage}
-            onChange={(e) => setJumpPage(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleJump()}
-          />
-          <span className="text-sm text-muted-foreground">页</span>
         </div>
       </div>
-    </div>
+    </main>
   )
 }

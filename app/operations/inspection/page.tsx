@@ -3,14 +3,21 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import {
   Home,
   AlertCircle,
   Calendar,
   Clock,
-  ChevronLeft,
-  ChevronRight,
   Download,
+  Search,
+  RefreshCw,
+  Wrench,
+  Settings,
+  ChevronUp,
+  ChevronDown,
+  Info,
+  Trash2,
 } from "lucide-react"
 import {
   Select,
@@ -19,14 +26,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 
 // 每日巡检状态数据（日期 -> { count: 巡检次数, hasAbnormal: 是否有异常 }）
 const dailyInspectionStatus: Record<string, { count: number; hasAbnormal: boolean }> = {
@@ -63,6 +62,9 @@ export default function InspectionPage() {
   const [selectedDate, setSelectedDate] = useState(2)
   const [selectedRecordDate, setSelectedRecordDate] = useState("2026-02-02")
   const [inspectionMode, setInspectionMode] = useState("after-class")
+  const [searchClassroom, setSearchClassroom] = useState("")
+  const [selectedRows, setSelectedRows] = useState<number[]>([])
+  const [pageSize, setPageSize] = useState(10)
 
   // 生成日历数据
   const generateCalendarDays = () => {
@@ -272,24 +274,31 @@ export default function InspectionPage() {
 
           {/* 右侧巡检记录 */}
           <Card className="flex-1">
-            <CardContent className="p-4">
-              {/* 标题行 */}
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-4">
-                  <h3 className="font-semibold text-foreground">巡检记录</h3>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="date"
-                      value={selectedRecordDate}
-                      onChange={(e) => setSelectedRecordDate(e.target.value)}
-                      className="border border-border rounded-md px-3 py-1.5 text-sm bg-background"
-                    />
-                  </div>
+            <CardContent className="p-4 space-y-4">
+              {/* 筛选栏 */}
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground whitespace-nowrap">巡检日期:</span>
+                  <input
+                    type="date"
+                    value={selectedRecordDate}
+                    onChange={(e) => setSelectedRecordDate(e.target.value)}
+                    className="border border-border rounded-md px-3 py-1.5 text-sm bg-background w-40"
+                  />
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">模式</span>
+                  <span className="text-sm text-muted-foreground whitespace-nowrap">教室:</span>
+                  <Input
+                    placeholder="请输入教室"
+                    value={searchClassroom}
+                    onChange={(e) => setSearchClassroom(e.target.value)}
+                    className="w-48"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground whitespace-nowrap">模式:</span>
                   <Select value={inspectionMode} onValueChange={setInspectionMode}>
-                    <SelectTrigger className="w-32">
+                    <SelectTrigger className="w-40">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -298,62 +307,143 @@ export default function InspectionPage() {
                       <SelectItem value="manual">手动巡检</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Button className="bg-primary hover:bg-primary/90">
-                    立即巡检
-                  </Button>
+                </div>
+                <Button>
+                  <Search className="h-4 w-4 mr-1" />
+                  查询
+                </Button>
+                <Button variant="outline" onClick={() => { setSearchClassroom(""); setSelectedRecordDate("2026-02-02") }}>
+                  <RefreshCw className="h-4 w-4 mr-1" />
+                  重置
+                </Button>
+              </div>
+
+              {/* 工具栏 */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Button className="bg-primary hover:bg-primary/90">立即巡检</Button>
+                  {selectedRows.length > 0 && (
+                    <Button variant="outline" className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive">
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      批量删除
+                    </Button>
+                  )}
                   <Button variant="outline">
-                    <Download className="mr-2 h-4 w-4" />
+                    <Download className="h-4 w-4 mr-1" />
                     导出
+                  </Button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="icon">
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon">
+                    <Wrench className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon">
+                    <Settings className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
 
+              {/* 选中提示 */}
+              <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/30 px-4 py-2 rounded">
+                <Info className="h-4 w-4" />
+                <span>{selectedRows.length > 0 ? `已选中 ${selectedRows.length} 条数据` : "未选中任何数据"}</span>
+              </div>
+
               {/* 表格 */}
               <div className="border border-border rounded-lg overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/30">
-                      <TableHead className="w-16 text-center">序号</TableHead>
-                      <TableHead className="w-40">巡检时间</TableHead>
-                      <TableHead>校区</TableHead>
-                      <TableHead>楼栋</TableHead>
-                      <TableHead className="w-20">楼层</TableHead>
-                      <TableHead className="w-24">教室</TableHead>
-                      <TableHead className="w-20 text-center">设备数</TableHead>
-                      <TableHead className="w-20 text-center">AI快照</TableHead>
-                      <TableHead className="w-20 text-center">结果</TableHead>
-                      <TableHead className="w-20 text-center">操作</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/30">
+                      <th className="p-3 text-center w-12">
+                        <input
+                          type="checkbox"
+                          checked={selectedRows.length === inspectionRecords.length && inspectionRecords.length > 0}
+                          onChange={(e) => {
+                            if (e.target.checked) setSelectedRows(inspectionRecords.map((r) => r.id))
+                            else setSelectedRows([])
+                          }}
+                          className="h-4 w-4"
+                        />
+                      </th>
+                      <th className="p-3 text-center text-sm font-medium text-muted-foreground w-16">序号</th>
+                      <th className="p-3 text-center text-sm font-medium text-muted-foreground">
+                        <div className="flex items-center justify-center gap-1">
+                          巡检时间
+                          <div className="flex flex-col">
+                            <ChevronUp className="h-3 w-3" />
+                            <ChevronDown className="h-3 w-3 -mt-1" />
+                          </div>
+                        </div>
+                      </th>
+                      <th className="p-3 text-center text-sm font-medium text-muted-foreground">校区</th>
+                      <th className="p-3 text-center text-sm font-medium text-muted-foreground">楼栋</th>
+                      <th className="p-3 text-center text-sm font-medium text-muted-foreground">楼层</th>
+                      <th className="p-3 text-center text-sm font-medium text-muted-foreground">教室</th>
+                      <th className="p-3 text-center text-sm font-medium text-muted-foreground">设备数</th>
+                      <th className="p-3 text-center text-sm font-medium text-muted-foreground">AI快照</th>
+                      <th className="p-3 text-center text-sm font-medium text-muted-foreground">结果</th>
+                      <th className="p-3 text-center text-sm font-medium text-muted-foreground">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
                     {inspectionRecords.map((record) => (
-                      <TableRow key={record.id}>
-                        <TableCell className="text-center">{record.id}</TableCell>
-                        <TableCell>{record.time}</TableCell>
-                        <TableCell>{record.campus}</TableCell>
-                        <TableCell>{record.building}</TableCell>
-                        <TableCell>{record.floor}</TableCell>
-                        <TableCell>{record.classroom}</TableCell>
-                        <TableCell className="text-center">{record.deviceCount}</TableCell>
-                        <TableCell className="text-center">
-                          <Button variant="link" className="text-primary p-0 h-auto">
-                            查看
-                          </Button>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <span className={record.result === "正常" ? "text-green-600" : "text-red-600"}>
+                      <tr key={record.id} className="border-b border-border hover:bg-muted/20">
+                        <td className="p-3 text-center">
+                          <input
+                            type="checkbox"
+                            checked={selectedRows.includes(record.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) setSelectedRows([...selectedRows, record.id])
+                              else setSelectedRows(selectedRows.filter((id) => id !== record.id))
+                            }}
+                            className="h-4 w-4"
+                          />
+                        </td>
+                        <td className="p-3 text-center text-sm">{record.id}</td>
+                        <td className="p-3 text-center text-sm">{record.time}</td>
+                        <td className="p-3 text-center text-sm">{record.campus}</td>
+                        <td className="p-3 text-center text-sm">{record.building}</td>
+                        <td className="p-3 text-center text-sm">{record.floor}</td>
+                        <td className="p-3 text-center text-sm">{record.classroom}</td>
+                        <td className="p-3 text-center text-sm">{record.deviceCount}</td>
+                        <td className="p-3 text-center">
+                          <button className="text-sm text-primary hover:underline">查看</button>
+                        </td>
+                        <td className="p-3 text-center">
+                          <span className={`text-sm ${record.result === "正常" ? "text-green-600" : "text-red-600"}`}>
                             {record.result}
                           </span>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Button variant="link" className="text-primary p-0 h-auto">
-                            详情
-                          </Button>
-                        </TableCell>
-                      </TableRow>
+                        </td>
+                        <td className="p-3 text-center">
+                          <button className="text-sm text-primary hover:underline">详情</button>
+                        </td>
+                      </tr>
                     ))}
-                  </TableBody>
-                </Table>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* 分页 */}
+              <div className="flex items-center justify-end gap-4">
+                <span className="text-sm text-muted-foreground">共 {inspectionRecords.length} 条数据</span>
+                <div className="flex items-center gap-1">
+                  <Button variant="outline" size="sm" className="h-8 w-8 p-0 bg-primary text-primary-foreground">
+                    1
+                  </Button>
+                </div>
+                <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+                  <SelectTrigger className="w-24 h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10 条/页</SelectItem>
+                    <SelectItem value="20">20 条/页</SelectItem>
+                    <SelectItem value="50">50 条/页</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </CardContent>
           </Card>

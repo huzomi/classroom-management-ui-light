@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Download, Plus, X } from "lucide-react"
+import { Download, Plus, Search, RefreshCw, Wrench, Settings, ChevronUp, ChevronDown, Info, Trash2 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -104,6 +104,8 @@ export default function MaintenancePage() {
   const [selectedClassroom, setSelectedClassroom] = useState<string>("")
   const [selectedStatus, setSelectedStatus] = useState<string>("")
   const [selectedFaultType, setSelectedFaultType] = useState<string>("")
+  const [selectedRows, setSelectedRows] = useState<string[]>([])
+  const [pageSize, setPageSize] = useState(10)
 
   // 新增报修对话框状态
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -207,103 +209,172 @@ export default function MaintenancePage() {
     }
   }
 
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) setSelectedRows(tickets.map((t) => t.id))
+    else setSelectedRows([])
+  }
+
+  const handleSelectRow = (id: string, checked: boolean) => {
+    if (checked) setSelectedRows([...selectedRows, id])
+    else setSelectedRows(selectedRows.filter((rid) => rid !== id))
+  }
+
   return (
-    <div className="flex flex-col h-[calc(100vh-3.5rem)] p-6">
-      {/* 筛选栏 */}
-      <div className="flex items-center gap-4 mb-6 flex-wrap">
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-primary">位置</span>
-          <Select value={selectedBuilding} onValueChange={setSelectedBuilding}>
-            <SelectTrigger className="w-28">
-              <SelectValue placeholder="选择楼栋" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="building1">教一楼</SelectItem>
-              <SelectItem value="building2">教二楼</SelectItem>
-              <SelectItem value="building3">教三楼</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={selectedFloor} onValueChange={setSelectedFloor}>
-            <SelectTrigger className="w-28">
-              <SelectValue placeholder="选择楼层" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="floor1">一楼</SelectItem>
-              <SelectItem value="floor2">二楼</SelectItem>
-              <SelectItem value="floor3">三楼</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={selectedClassroom} onValueChange={setSelectedClassroom}>
-            <SelectTrigger className="w-28">
-              <SelectValue placeholder="选择教室" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="101">101</SelectItem>
-              <SelectItem value="102">102</SelectItem>
-              <SelectItem value="109">109</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-primary">状态</span>
-          <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-            <SelectTrigger className="w-28">
-              <SelectValue placeholder="故障状态" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="pending">未处理</SelectItem>
-              <SelectItem value="delayed">延后处理</SelectItem>
-              <SelectItem value="resolved">已解决</SelectItem>
-              <SelectItem value="no-action">不需要处理</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-primary">故障类型</span>
-          <Select value={selectedFaultType} onValueChange={setSelectedFaultType}>
-            <SelectTrigger className="w-28">
-              <SelectValue placeholder="类型" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="equipment">设备故障</SelectItem>
-              <SelectItem value="network">网络故障</SelectItem>
-              <SelectItem value="circuit">电路故障</SelectItem>
-              <SelectItem value="other">其他故障</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <Button>查询</Button>
-        <Button variant="outline" onClick={handleReset}>重置</Button>
-
-        <div className="ml-auto flex items-center gap-2">
-          <Button onClick={() => setDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-1" />
-            新增报修
+    <main className="flex-1 overflow-auto p-6">
+      <div className="space-y-4">
+        {/* 筛选栏 */}
+        <div className="flex items-center gap-4 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground whitespace-nowrap">楼栋:</span>
+            <Select value={selectedBuilding} onValueChange={setSelectedBuilding}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="请选择楼栋" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="building1">教一楼</SelectItem>
+                <SelectItem value="building2">教二楼</SelectItem>
+                <SelectItem value="building3">教三楼</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground whitespace-nowrap">楼层:</span>
+            <Select value={selectedFloor} onValueChange={setSelectedFloor}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="请选择楼层" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="floor1">一楼</SelectItem>
+                <SelectItem value="floor2">二楼</SelectItem>
+                <SelectItem value="floor3">三楼</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground whitespace-nowrap">教室:</span>
+            <Select value={selectedClassroom} onValueChange={setSelectedClassroom}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="请选择教室" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="101">101</SelectItem>
+                <SelectItem value="102">102</SelectItem>
+                <SelectItem value="109">109</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground whitespace-nowrap">状态:</span>
+            <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="请选择状态" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pending">未处理</SelectItem>
+                <SelectItem value="delayed">延后处理</SelectItem>
+                <SelectItem value="resolved">已解决</SelectItem>
+                <SelectItem value="no-action">不需要处理</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground whitespace-nowrap">故障类型:</span>
+            <Select value={selectedFaultType} onValueChange={setSelectedFaultType}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="请选择类型" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="equipment">设备故障</SelectItem>
+                <SelectItem value="network">网络故障</SelectItem>
+                <SelectItem value="circuit">电路故障</SelectItem>
+                <SelectItem value="other">其他故障</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <Button>
+            <Search className="h-4 w-4 mr-1" />
+            查询
           </Button>
-          <Button variant="outline">
-            <Download className="h-4 w-4 mr-1" />
-            导出记录
+          <Button variant="outline" onClick={handleReset}>
+            <RefreshCw className="h-4 w-4 mr-1" />
+            重置
           </Button>
         </div>
-      </div>
 
-      {/* 表格 */}
-      <div className="flex-1 border border-border rounded-lg overflow-hidden">
-        <div className="overflow-auto h-full">
+        {/* 工具栏 */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Button onClick={() => setDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-1" />
+              新增
+            </Button>
+            {selectedRows.length > 0 && (
+              <Button variant="outline" className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive">
+                <Trash2 className="h-4 w-4 mr-1" />
+                批量删除
+              </Button>
+            )}
+            <Button variant="outline">
+              <Download className="h-4 w-4 mr-1" />
+              导出
+            </Button>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon">
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon">
+              <Wrench className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon">
+              <Settings className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* 选中提示 */}
+        <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/30 px-4 py-2 rounded">
+          <Info className="h-4 w-4" />
+          <span>{selectedRows.length > 0 ? `已选中 ${selectedRows.length} 条数据` : "未选中任何数据"}</span>
+        </div>
+
+        {/* 表格 */}
+        <div className="border border-border rounded-lg overflow-hidden">
           <table className="w-full">
-            <thead className="bg-muted/30 sticky top-0">
-              <tr className="border-b border-border">
-                <th className="text-left p-4 text-sm font-medium text-primary">工单号</th>
-                <th className="text-left p-4 text-sm font-medium text-primary">位置信息</th>
-                <th className="text-left p-4 text-sm font-medium text-primary">故障类型</th>
-                <th className="text-left p-4 text-sm font-medium text-primary">故障描述</th>
-                <th className="text-left p-4 text-sm font-medium text-primary">报修人</th>
-                <th className="text-left p-4 text-sm font-medium text-primary">报修时间</th>
-                <th className="text-left p-4 text-sm font-medium text-primary">状态</th>
-                <th className="text-left p-4 text-sm font-medium text-primary">操作</th>
+            <thead>
+              <tr className="border-b border-border bg-muted/30">
+                <th className="p-3 text-center w-12">
+                  <input
+                    type="checkbox"
+                    checked={selectedRows.length === tickets.length && tickets.length > 0}
+                    onChange={(e) => handleSelectAll(e.target.checked)}
+                    className="h-4 w-4"
+                  />
+                </th>
+                <th className="p-3 text-center text-sm font-medium text-muted-foreground">
+                  <div className="flex items-center justify-center gap-1">
+                    工单号
+                    <div className="flex flex-col">
+                      <ChevronUp className="h-3 w-3" />
+                      <ChevronDown className="h-3 w-3 -mt-1" />
+                    </div>
+                  </div>
+                </th>
+                <th className="p-3 text-center text-sm font-medium text-muted-foreground">位置信息</th>
+                <th className="p-3 text-center text-sm font-medium text-muted-foreground">故障类型</th>
+                <th className="p-3 text-center text-sm font-medium text-muted-foreground">故障描述</th>
+                <th className="p-3 text-center text-sm font-medium text-muted-foreground">报修人</th>
+                <th className="p-3 text-center text-sm font-medium text-muted-foreground">
+                  <div className="flex items-center justify-center gap-1">
+                    报修时间
+                    <div className="flex flex-col">
+                      <ChevronUp className="h-3 w-3" />
+                      <ChevronDown className="h-3 w-3 -mt-1" />
+                    </div>
+                  </div>
+                </th>
+                <th className="p-3 text-center text-sm font-medium text-muted-foreground">状态</th>
+                <th className="p-3 text-center text-sm font-medium text-muted-foreground">操作</th>
               </tr>
             </thead>
             <tbody>
@@ -313,23 +384,31 @@ export default function MaintenancePage() {
                 const actions = getActions(ticket.status)
 
                 return (
-                  <tr key={index} className="border-b border-border hover:bg-accent/50 transition-colors">
-                    <td className="p-4 text-sm text-primary">{ticket.id}</td>
-                    <td className="p-4 text-sm text-foreground">{ticket.location}</td>
-                    <td className="p-4">
+                  <tr key={index} className="border-b border-border hover:bg-muted/20">
+                    <td className="p-3 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedRows.includes(ticket.id)}
+                        onChange={(e) => handleSelectRow(ticket.id, e.target.checked)}
+                        className="h-4 w-4"
+                      />
+                    </td>
+                    <td className="p-3 text-center text-sm text-primary">{ticket.id}</td>
+                    <td className="p-3 text-center text-sm text-foreground">{ticket.location}</td>
+                    <td className="p-3 text-center">
                       <Badge variant="outline" className={faultType.color}>
                         {faultType.label}
                       </Badge>
                     </td>
-                    <td className="p-4 text-sm text-foreground">{ticket.description}</td>
-                    <td className="p-4 text-sm text-foreground">{ticket.reporter}</td>
-                    <td className="p-4 text-sm text-foreground">{ticket.reportTime}</td>
-                    <td className="p-4">
+                    <td className="p-3 text-center text-sm text-foreground">{ticket.description}</td>
+                    <td className="p-3 text-center text-sm text-foreground">{ticket.reporter}</td>
+                    <td className="p-3 text-center text-sm text-foreground">{ticket.reportTime}</td>
+                    <td className="p-3 text-center">
                       <Badge variant="outline" className={status.color}>
                         {status.label}
                       </Badge>
                     </td>
-                    <td className="p-4">
+                    <td className="p-3 text-center">
                       <div className="flex items-center gap-2">
                         {actions.map((action, actionIndex) => (
                           <button
@@ -356,11 +435,27 @@ export default function MaintenancePage() {
             </tbody>
           </table>
         </div>
-      </div>
 
-      {/* 分页 */}
-      <div className="flex items-center justify-end gap-4 mt-4">
-        <span className="text-sm text-muted-foreground">共{tickets.length}条</span>
+        {/* 分页 */}
+        <div className="flex items-center justify-end gap-4">
+          <span className="text-sm text-muted-foreground">共 {tickets.length} 条数据</span>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="sm" className="h-8 w-8 p-0 bg-primary text-primary-foreground">
+              1
+            </Button>
+          </div>
+          <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+            <SelectTrigger className="w-24 h-8">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="10">10 条/页</SelectItem>
+              <SelectItem value="20">20 条/页</SelectItem>
+              <SelectItem value="50">50 条/页</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
 
       {/* 延后处理对话框 */}
       <Dialog open={processDialogOpen} onOpenChange={setProcessDialogOpen}>
@@ -873,22 +968,6 @@ export default function MaintenancePage() {
           </div>
         </DialogContent>
       </Dialog>
-        <div className="flex items-center gap-1">
-          <Button variant="default" size="sm" className="h-8 w-8 p-0">
-            1
-          </Button>
-        </div>
-        <Select defaultValue="10">
-          <SelectTrigger className="w-24 h-8">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="10">10条/页</SelectItem>
-            <SelectItem value="20">20条/页</SelectItem>
-            <SelectItem value="50">50条/页</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-    </div>
+    </main>
   )
 }
