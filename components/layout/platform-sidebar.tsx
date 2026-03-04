@@ -13,8 +13,6 @@ import {
   Wrench,
   Database,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
 } from "lucide-react"
 import { useState } from "react"
 import { useSidebar } from "./sidebar-context"
@@ -248,23 +246,7 @@ export function PlatformSidebar() {
           })}
         </nav>
 
-        {/* Collapse Toggle Button */}
-        <div className="border-t border-sidebar-border p-2">
-          <button
-            onClick={toggleSidebar}
-            className="flex w-full items-center justify-center rounded-lg p-2 text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors"
-          >
-            {isCollapsed ? (
-              <ChevronRight className="h-5 w-5" />
-            ) : (
-              <>
-                <ChevronLeft className="h-5 w-5" />
-                <span className="ml-2 text-sm">收起菜单</span>
-              </>
-            )}
-          </button>
         </div>
-      </div>
     </TooltipProvider>
   )
 }
