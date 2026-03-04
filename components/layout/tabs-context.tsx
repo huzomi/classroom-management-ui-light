@@ -118,20 +118,25 @@ export function TabsProvider({ children }: { children: ReactNode }) {
   // 监听路由变化，自动添加标签并同步激活状态
   useEffect(() => {
     if (pathname) {
+      console.log("[v0] pathname changed:", pathname)
+      console.log("[v0] current tabs:", tabs.map(t => t.path))
       setActiveTab(pathname)
       setTabs(prev => {
         const exists = prev.find(tab => tab.path === pathname)
+        console.log("[v0] tab exists:", exists)
         if (exists) {
           return prev
         }
-        return [...prev, { 
+        const newTabs = [...prev, { 
           path: pathname, 
-          title: getPageTitle(pathname), 
+          title: menuConfig[pathname] || "未知页面", 
           closable: pathname !== "/" 
         }]
+        console.log("[v0] new tabs:", newTabs.map(t => t.path))
+        return newTabs
       })
     }
-  }, [pathname, getPageTitle])
+  }, [pathname])
 
   return (
     <TabsContext.Provider value={{ 
