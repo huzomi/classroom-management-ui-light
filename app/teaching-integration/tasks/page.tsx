@@ -115,13 +115,31 @@ export default function TaskManagementPage() {
 
   return (
     <main className="flex-1 overflow-auto p-6">
-      <div className="mx-auto max-w-7xl space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-foreground">任务管理</h1>
-            <p className="mt-1 text-sm text-muted-foreground">自定义定时任务，实现教室设备自动化控制</p>
+      <div className="space-y-4">
+        {/* Stats */}
+        <div className="grid grid-cols-4 gap-4">
+          <div className="rounded-lg border border-border bg-card p-4">
+            <div className="text-sm text-muted-foreground">总任务数</div>
+            <div className="mt-1 text-2xl font-semibold text-foreground">{tasks.length}</div>
           </div>
+          <div className="rounded-lg border border-border bg-card p-4">
+            <div className="text-sm text-muted-foreground">运行中</div>
+            <div className="mt-1 text-2xl font-semibold text-green-400">{tasks.filter((t) => t.enabled).length}</div>
+          </div>
+          <div className="rounded-lg border border-border bg-card p-4">
+            <div className="text-sm text-muted-foreground">已暂停</div>
+            <div className="mt-1 text-2xl font-semibold text-muted-foreground">
+              {tasks.filter((t) => !t.enabled).length}
+            </div>
+          </div>
+          <div className="rounded-lg border border-border bg-card p-4">
+            <div className="text-sm text-muted-foreground">今日执行</div>
+            <div className="mt-1 text-2xl font-semibold text-blue-400">12</div>
+          </div>
+        </div>
+
+        {/* Search & Filter */}
+        <div className="flex items-center gap-3">
           <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
             <DialogTrigger asChild>
               <Button>
@@ -445,32 +463,6 @@ export default function TaskManagementPage() {
               </div>
             </DialogContent>
           </Dialog>
-        </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-4 gap-4">
-          <div className="rounded-lg border border-border bg-card p-4">
-            <div className="text-sm text-muted-foreground">总任务数</div>
-            <div className="mt-1 text-2xl font-semibold text-foreground">{tasks.length}</div>
-          </div>
-          <div className="rounded-lg border border-border bg-card p-4">
-            <div className="text-sm text-muted-foreground">运行中</div>
-            <div className="mt-1 text-2xl font-semibold text-green-400">{tasks.filter((t) => t.enabled).length}</div>
-          </div>
-          <div className="rounded-lg border border-border bg-card p-4">
-            <div className="text-sm text-muted-foreground">已暂停</div>
-            <div className="mt-1 text-2xl font-semibold text-muted-foreground">
-              {tasks.filter((t) => !t.enabled).length}
-            </div>
-          </div>
-          <div className="rounded-lg border border-border bg-card p-4">
-            <div className="text-sm text-muted-foreground">今日执行</div>
-            <div className="mt-1 text-2xl font-semibold text-blue-400">12</div>
-          </div>
-        </div>
-
-        {/* Search & Filter */}
-        <div className="flex gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input placeholder="搜索任务..." className="pl-10" />

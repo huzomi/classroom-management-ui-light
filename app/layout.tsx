@@ -3,11 +3,9 @@ import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
-import { PlatformSidebar } from "@/components/layout/platform-sidebar"
-import { PlatformHeader } from "@/components/layout/platform-header"
 import { SidebarProvider } from "@/components/layout/sidebar-context"
 import { TabsProvider } from "@/components/layout/tabs-context"
-import { TabsNav } from "@/components/layout/tabs-nav"
+import { AuthLayoutSwitch } from "@/components/layout/auth-layout-switch"
 
 const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
@@ -45,14 +43,7 @@ export default function RootLayout({
       <body className={`font-sans antialiased`}>
         <SidebarProvider>
           <TabsProvider>
-            <div className="flex h-screen overflow-hidden bg-background">
-              <PlatformSidebar />
-              <div className="flex flex-1 flex-col overflow-hidden">
-                <PlatformHeader />
-                <TabsNav />
-                <main className="flex-1 overflow-auto">{children}</main>
-              </div>
-            </div>
+            <AuthLayoutSwitch>{children}</AuthLayoutSwitch>
           </TabsProvider>
         </SidebarProvider>
         <Analytics />

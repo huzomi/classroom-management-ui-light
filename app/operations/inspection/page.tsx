@@ -3,21 +3,14 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import {
   Home,
   AlertCircle,
   Calendar,
   Clock,
   Download,
-  Search,
-  RefreshCw,
-  Wrench,
-  Settings,
   ChevronUp,
   ChevronDown,
-  Info,
-  Trash2,
 } from "lucide-react"
 import {
   Select,
@@ -62,8 +55,6 @@ export default function InspectionPage() {
   const [selectedDate, setSelectedDate] = useState(2)
   const [selectedRecordDate, setSelectedRecordDate] = useState("2026-02-02")
   const [inspectionMode, setInspectionMode] = useState("after-class")
-  const [searchClassroom, setSearchClassroom] = useState("")
-  const [selectedRows, setSelectedRows] = useState<number[]>([])
   const [pageSize, setPageSize] = useState(10)
 
   // 生成日历数据
@@ -135,17 +126,17 @@ export default function InspectionPage() {
   }
 
   return (
-    <main className="flex-1 overflow-auto p-6 bg-background">
-      <div className="mx-auto max-w-[1800px] space-y-6">
+    <main className="flex flex-col flex-1 min-h-0 overflow-auto p-6 bg-background">
+      <div className="mx-auto w-full max-w-[1800px] flex flex-col flex-1 min-h-0 gap-6">
         {/* 顶部统计卡片 */}
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-4 gap-4 flex-shrink-0">
           <Card>
             <CardContent className="flex items-center gap-4 p-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
                 <Home className="h-6 w-6 text-primary" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">覆盖教室(间)</p>
+                <p className="text-sm text-muted-foreground">教室总数(间)</p>
                 <p className="text-3xl font-bold text-foreground">19</p>
               </div>
             </CardContent>
@@ -188,10 +179,10 @@ export default function InspectionPage() {
           </Card>
         </div>
 
-        {/* 主体内容：日历 + 记录表格 */}
-        <div className="flex gap-6">
-          {/* 左侧日历 */}
-          <Card className="w-80 flex-shrink-0">
+        {/* 主体内容：日历 + 记录表格，比例约 1:3 */}
+        <div className="grid grid-cols-[minmax(260px,1fr)_minmax(0,3fr)] gap-6 flex-1 min-h-[calc(100vh-14rem)]">
+          {/* 左侧日历 ~25% */}
+          <Card className="flex flex-col min-h-0 overflow-hidden">
             <CardContent className="p-4">
               <h3 className="font-semibold text-foreground mb-4">巡检日历</h3>
               
@@ -255,7 +246,7 @@ export default function InspectionPage() {
               </div>
 
               {/* 图例 */}
-              <div className="flex items-center gap-4 mt-4 pt-4 border-t border-border">
+              <div className="flex items-center justify-center gap-4 mt-4 pt-4 border-t border-border">
                 <div className="flex items-center gap-1">
                   <div className="h-2 w-2 rounded-full bg-green-500"></div>
                   <span className="text-xs text-muted-foreground">正常</span>
@@ -272,102 +263,49 @@ export default function InspectionPage() {
             </CardContent>
           </Card>
 
-          {/* 右侧巡检记录 */}
-          <Card className="flex-1">
-            <CardContent className="p-4 space-y-4">
-              {/* 筛选栏 */}
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground whitespace-nowrap">巡检日期:</span>
-                  <input
-                    type="date"
-                    value={selectedRecordDate}
-                    onChange={(e) => setSelectedRecordDate(e.target.value)}
-                    className="border border-border rounded-md px-3 py-1.5 text-sm bg-background w-40"
-                  />
+          {/* 右侧巡检记录 ~75% */}
+          <Card className="flex flex-col min-h-0 overflow-hidden">
+            <CardContent className="p-4 flex flex-col flex-1 min-h-0 space-y-4">
+              {/* 筛选栏 + 操作按钮 */}
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground whitespace-nowrap">巡检日期:</span>
+                    <input
+                      type="date"
+                      value={selectedRecordDate}
+                      onChange={(e) => setSelectedRecordDate(e.target.value)}
+                      className="border border-border rounded-md px-3 py-1.5 text-sm bg-background w-40"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground whitespace-nowrap">模式:</span>
+                    <Select value={inspectionMode} onValueChange={setInspectionMode}>
+                      <SelectTrigger className="w-40">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="after-class">下课巡检</SelectItem>
+                        <SelectItem value="scheduled">定时巡检</SelectItem>
+                        <SelectItem value="manual">手动巡检</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground whitespace-nowrap">教室:</span>
-                  <Input
-                    placeholder="请输入教室"
-                    value={searchClassroom}
-                    onChange={(e) => setSearchClassroom(e.target.value)}
-                    className="w-48"
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground whitespace-nowrap">模式:</span>
-                  <Select value={inspectionMode} onValueChange={setInspectionMode}>
-                    <SelectTrigger className="w-40">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="after-class">下课巡检</SelectItem>
-                      <SelectItem value="scheduled">定时巡检</SelectItem>
-                      <SelectItem value="manual">手动巡检</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button>
-                  <Search className="h-4 w-4 mr-1" />
-                  查询
-                </Button>
-                <Button variant="outline" onClick={() => { setSearchClassroom(""); setSelectedRecordDate("2026-02-02") }}>
-                  <RefreshCw className="h-4 w-4 mr-1" />
-                  重置
-                </Button>
-              </div>
-
-              {/* 工具栏 */}
-              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Button className="bg-primary hover:bg-primary/90">立即巡检</Button>
-                  {selectedRows.length > 0 && (
-                    <Button variant="outline" className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive">
-                      <Trash2 className="h-4 w-4 mr-1" />
-                      批量删除
-                    </Button>
-                  )}
                   <Button variant="outline">
                     <Download className="h-4 w-4 mr-1" />
                     导出
                   </Button>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="icon">
-                    <RefreshCw className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon">
-                    <Wrench className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon">
-                    <Settings className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-
-              {/* 选中提示 */}
-              <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/30 px-4 py-2 rounded">
-                <Info className="h-4 w-4" />
-                <span>{selectedRows.length > 0 ? `已选中 ${selectedRows.length} 条数据` : "未选中任何数据"}</span>
               </div>
 
               {/* 表格 */}
-              <div className="border border-border rounded-lg overflow-hidden">
+              <div className="border border-border rounded-lg overflow-auto flex-1 min-h-0">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-border bg-muted/30">
-                      <th className="p-3 text-center w-12">
-                        <input
-                          type="checkbox"
-                          checked={selectedRows.length === inspectionRecords.length && inspectionRecords.length > 0}
-                          onChange={(e) => {
-                            if (e.target.checked) setSelectedRows(inspectionRecords.map((r) => r.id))
-                            else setSelectedRows([])
-                          }}
-                          className="h-4 w-4"
-                        />
-                      </th>
                       <th className="p-3 text-center text-sm font-medium text-muted-foreground w-16">序号</th>
                       <th className="p-3 text-center text-sm font-medium text-muted-foreground">
                         <div className="flex items-center justify-center gap-1">
@@ -391,17 +329,6 @@ export default function InspectionPage() {
                   <tbody>
                     {inspectionRecords.map((record) => (
                       <tr key={record.id} className="border-b border-border hover:bg-muted/20">
-                        <td className="p-3 text-center">
-                          <input
-                            type="checkbox"
-                            checked={selectedRows.includes(record.id)}
-                            onChange={(e) => {
-                              if (e.target.checked) setSelectedRows([...selectedRows, record.id])
-                              else setSelectedRows(selectedRows.filter((id) => id !== record.id))
-                            }}
-                            className="h-4 w-4"
-                          />
-                        </td>
                         <td className="p-3 text-center text-sm">{record.id}</td>
                         <td className="p-3 text-center text-sm">{record.time}</td>
                         <td className="p-3 text-center text-sm">{record.campus}</td>

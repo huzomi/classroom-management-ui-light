@@ -1,5 +1,6 @@
 "use client"
 
+import { useRouter } from "next/navigation"
 import { Bell, HelpCircle, PanelLeftClose, PanelLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -14,6 +15,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { useSidebar } from "./sidebar-context"
 
 export function PlatformHeader() {
+  const router = useRouter()
   const { isCollapsed, toggleSidebar } = useSidebar()
 
   return (
@@ -58,7 +60,7 @@ export function PlatformHeader() {
             <DropdownMenuItem>个人资料</DropdownMenuItem>
             <DropdownMenuItem>系统设置</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>退出登录</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push("/login")}>退出登录</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
