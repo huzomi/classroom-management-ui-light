@@ -1,12 +1,10 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
-import { BuildingTree, treeData, getAllRoomIds } from "@/components/classroom/building-tree"
-import { fetchClassrooms } from "@/lib/api/classroom"
-import type { RoomData } from "@/components/classroom/room-card"
+import { BuildingTree, allRoomIds } from "@/components/classroom/building-tree"
 
 import {
   LayoutGrid,
@@ -20,123 +18,66 @@ import {
   Building2,
 } from "lucide-react"
 
-type DisplayStatus = "in-class" | "idle" | "fault"
-
-function roomToDisplayStatus(status: RoomData["status"]): DisplayStatus {
-  if (status === "teaching" || status === "exam" || status === "self-study") return "in-class"
-  if (status === "fault" || status === "abnormal") return "fault"
-  return "idle"
+// 教室监控状态 Mock 数据（与 treeData 中的 roomId 对应）
+type MonitorStatus = "in-class" | "idle" | "fault"
+const mockClassroomStatus: Record<
+  string,
+  { name: string; status: MonitorStatus; teacher: string | null; course: string | null; camera: "teacher" | "student" | "desktop" }
+> = {
+  a101: { name: "A101", status: "in-class", teacher: "张老师", course: "高等数学", camera: "teacher" },
+  a102: { name: "A102", status: "idle", teacher: null, course: null, camera: "student" },
+  a103: { name: "A103", status: "in-class", teacher: "李老师", course: "大学英语", camera: "teacher" },
+  a201: { name: "A201", status: "idle", teacher: null, course: null, camera: "teacher" },
+  a202: { name: "A202", status: "fault", teacher: null, course: null, camera: "teacher" },
+  a203: { name: "A203", status: "in-class", teacher: "赵老师", course: "化学实验", camera: "teacher" },
+  b101: { name: "B101", status: "in-class", teacher: "孙老师", course: "计算机编程", camera: "desktop" },
+  b102: { name: "B102", status: "idle", teacher: null, course: null, camera: "teacher" },
 }
-
-const allRoomIds = getAllRoomIds(treeData)
 
 export default function MonitoringPage() {
   const [gridMode, setGridMode] = useState<"single" | "quad" | "six">("quad")
   const [filterStatus, setFilterStatus] = useState<string>("all")
   const [audioEnabled, setAudioEnabled] = useState<Set<string>>(new Set())
   const [showSidebar, setShowSidebar] = useState(true)
-  const [selectedClassrooms, setSelectedClassrooms] = useState<string[]>(() =>
-    allRoomIds.slice(0, 4)
-  )
+  const [selectedClassrooms, setSelectedClassrooms] = useState<string[]>(["a101", "a102", "a103", "a201"])
   const [autoRotate, setAutoRotate] = useState(false)
-  const [rooms, setRooms] = useState<RoomData[]>([])
-
-  useEffect(() => {
-    fetchClassrooms().then(setRooms)
-  }, [])
-
-  const roomDisplayMap = useMemo(() => {
-    const map = new Map<
-      string,
-      { id: string; name: string; status: DisplayStatus; teacher: string | null; course: string | null; camera: "teacher" | "student" | "desktop" }
-    >()
-    for (const r of rooms) {
-      map.set(r.id, {
-        id: r.id,
-        name: r.name,
-        status: roomToDisplayStatus(r.status),
-        teacher: r.currentCourse?.teacher ?? null,
-        course: r.currentCourse?.name ?? null,
-        camera: "teacher",
-      })
-    }
-    return map
-  }, [rooms])
-
-  const roomStatusMap = useMemo(() => {
-    const map: Record<string, string> = {}
-    for (const r of rooms) {
-      map[r.id] = roomToDisplayStatus(r.status)
-    }
-    return map
-  }, [rooms])
 
   const toggleAudio = (id: string) => {
-    setAudioEnabled((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
+    const newAudio = new Set(audioEnabled)
+    if (newAudio.has(id)) {
+      newAudio.delete(id)
+    } else {
+      newAudio.add(id)
+    }
+    setAudioEnabled(newAudio)
   }
-
-  const selectClassroom = (id: string) => {
-    setSelectedClassrooms((prev) =>
-      prev.includes(id) ? prev.filter((cId) => cId !== id) : [...prev, id]
-    )
-  }
-
-  const allClassrooms = useMemo(() => {
-    return allRoomIds
-      .map((id) => roomDisplayMap.get(id))
-      .filter(Boolean) as Array<{
-      id: string
-      name: string
-      status: DisplayStatus
-      teacher: string | null
-      course: string | null
-      camera: "teacher" | "student" | "desktop"
-    }>
-  }, [roomDisplayMap])
-
-  const filteredClassrooms = allClassrooms.filter((c) => {
-    if (filterStatus !== "all" && c.status !== filterStatus) return false
-    return true
-  })
 
   const gridClass = gridMode === "single" ? "grid-cols-1" : gridMode === "quad" ? "grid-cols-2" : "grid-cols-3"
   const maxDisplay = gridMode === "single" ? 1 : gridMode === "quad" ? 4 : 6
 
-  const displayClassrooms = filteredClassrooms
-    .filter((c) => selectedClassrooms.includes(c.id))
-    .slice(0, maxDisplay)
+  const filteredClassrooms = selectedClassrooms
+    .map((id) => {
+      const info = mockClassroomStatus[id]
+      return info ? { id, ...info } : null
+    })
+    .filter((c): c is NonNullable<typeof c> => c !== null && (filterStatus === "all" || c.status === filterStatus))
+
+  const displayClassrooms = filteredClassrooms.slice(0, maxDisplay)
 
 
   return (
     <div className="flex h-full">
       {showSidebar && (
-        <div className="w-64 shrink-0 border-r border-border bg-card flex flex-col">
-          <div className="flex-1 overflow-auto p-4">
-            <BuildingTree
-              title="快速定位"
-              subtitle={`已选 ${selectedClassrooms.length} / ${allRoomIds.length}`}
-              selectedRoomIds={selectedClassrooms}
-              onRoomClick={selectClassroom}
-              roomStatusMap={roomStatusMap}
-            />
-          </div>
-
-          <div className="shrink-0 p-3 border-t border-border">
-            <div className="text-xs text-muted-foreground mb-2">已选择 {selectedClassrooms.length} 个教室</div>
-            <Button
-              size="sm"
-              variant="outline"
-              className="w-full bg-transparent"
-              onClick={() => setSelectedClassrooms([...allRoomIds])}
-            >
-              选择全部
-            </Button>
-          </div>
+        <div className="w-64 shrink-0 flex flex-col min-h-0 border-r border-border bg-card p-4">
+          <BuildingTree
+            title="快速定位"
+            subtitle={`已选 ${selectedClassrooms.length} / ${allRoomIds.length} 教室`}
+            selectedRoomIds={selectedClassrooms}
+            onRoomSelectionChange={setSelectedClassrooms}
+            roomStatusMap={Object.fromEntries(
+              Object.entries(mockClassroomStatus).map(([id, info]) => [id, info.status])
+            )}
+          />
         </div>
       )}
 

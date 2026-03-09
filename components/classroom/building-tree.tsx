@@ -136,12 +136,17 @@ export function getAllRoomIds(nodes: TreeNode[]): string[] {
   return ids
 }
 
+/** 所有教室 ID 列表（便捷导出） */
+export const allRoomIds = getAllRoomIds(treeData)
+
 interface BuildingTreeProps {
   selectedNode?: string | null
   onSelectNode?: (node: TreeNode) => void
   onRoomClick?: (roomId: string) => void
   /** 多选模式下已选中的教室 ID 列表（用于监控页快速定位） */
   selectedRoomIds?: string[]
+  /** 多选模式下教室选择变化回调（与 selectedRoomIds 配合使用） */
+  onRoomSelectionChange?: (ids: string[]) => void
   /** 自定义标题，默认「空间架构」 */
   title?: string
   /** 自定义副标题，默认「386 教室」 */
@@ -155,6 +160,7 @@ export function BuildingTree({
   onSelectNode,
   onRoomClick,
   selectedRoomIds,
+  onRoomSelectionChange,
   title = "空间架构",
   subtitle = "386 教室",
   roomStatusMap,
@@ -187,8 +193,15 @@ export function BuildingTree({
   }
 
   const handleNodeClick = (node: TreeNode) => {
-    // 教室节点：若有 onRoomClick 则调用（监控页多选），否则跳转驾驶舱
+    // 教室节点：多选模式（监控页快速定位）或单选跳转
     if (node.type === "room" && node.roomId) {
+      if (onRoomSelectionChange && selectedRoomIds) {
+        const next = selectedRoomIds.includes(node.roomId)
+          ? selectedRoomIds.filter((id) => id !== node.roomId)
+          : [...selectedRoomIds, node.roomId]
+        onRoomSelectionChange(next)
+        return
+      }
       if (onRoomClick) {
         onRoomClick(node.roomId)
         return
@@ -258,8 +271,20 @@ export function BuildingTree({
               故障
             </span>
           )}
-          {isRoom && !roomStatus && (
+          {isRoom && !roomStatus && !selectedRoomIds && (
             <ChevronRight className="ml-auto h-3 w-3 text-muted-foreground" />
+          )}
+          {isRoom && selectedRoomIds && (
+            <span
+              className={cn(
+                "ml-auto flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px]",
+                isRoomSelected
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-muted-foreground/50 text-transparent"
+              )}
+            >
+              {isRoomSelected ? "✓" : ""}
+            </span>
           )}
         </button>
         {hasChildren && isExpanded && (
@@ -271,12 +296,30 @@ export function BuildingTree({
     )
   }
 
+  const isMonitoringMode = Boolean(onRoomSelectionChange && selectedRoomIds)
+
   return (
     <div className="h-full overflow-auto">
       <div className="mb-3 flex items-center justify-between px-2">
         <h3 className="text-sm font-medium text-foreground">{title}</h3>
         <span className="text-xs text-muted-foreground">{subtitle}</span>
       </div>
+      {isMonitoringMode && (
+        <div className="mb-2 px-2">
+          <button
+            type="button"
+            onClick={() => {
+              const all = allRoomIds
+              const next =
+                selectedRoomIds!.length === all.length ? [] : [...all]
+              onRoomSelectionChange!(next)
+            }}
+            className="text-xs text-primary hover:underline"
+          >
+            {selectedRoomIds!.length === allRoomIds.length ? "取消全选" : "选择全部"}
+          </button>
+        </div>
+      )}
       <div className="space-y-0.5">
         {treeData.map((node) => renderNode(node))}
       </div>
