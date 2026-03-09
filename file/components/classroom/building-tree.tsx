@@ -1,0 +1,241 @@
+"use client"
+
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { cn } from "@/lib/utils"
+import {
+  Building,
+  ChevronRight,
+  Layers,
+  School,
+  MapPin,
+} from "lucide-react"
+
+export interface TreeNode {
+  id: string
+  name: string
+  type: "campus" | "building" | "floor" | "room"
+  children?: TreeNode[]
+  roomCount?: number
+  roomId?: string // 用于教室节点关联实际教室ID
+}
+
+export const treeData: TreeNode[] = [
+  {
+    id: "campus-1",
+    name: "主校区",
+    type: "campus",
+    children: [
+      {
+        id: "building-a",
+        name: "教学楼A",
+        type: "building",
+        roomCount: 48,
+        children: [
+          {
+            id: "floor-a1",
+            name: "1楼",
+            type: "floor",
+            roomCount: 12,
+            children: [
+              { id: "room-a101", name: "A101", type: "room", roomId: "a101" },
+              { id: "room-a102", name: "A102", type: "room", roomId: "a102" },
+              { id: "room-a103", name: "A103", type: "room", roomId: "a103" },
+            ],
+          },
+          {
+            id: "floor-a2",
+            name: "2楼",
+            type: "floor",
+            roomCount: 12,
+            children: [
+              { id: "room-a201", name: "A201", type: "room", roomId: "a201" },
+              { id: "room-a202", name: "A202", type: "room", roomId: "a202" },
+              { id: "room-a203", name: "A203", type: "room", roomId: "a203" },
+            ],
+          },
+          {
+            id: "floor-a3",
+            name: "3楼",
+            type: "floor",
+            roomCount: 12,
+          },
+          {
+            id: "floor-a4",
+            name: "4楼",
+            type: "floor",
+            roomCount: 12,
+          },
+        ],
+      },
+      {
+        id: "building-b",
+        name: "教学楼B",
+        type: "building",
+        roomCount: 36,
+        children: [
+          { 
+            id: "floor-b1", 
+            name: "1楼", 
+            type: "floor", 
+            roomCount: 12,
+            children: [
+              { id: "room-b101", name: "B101", type: "room", roomId: "b101" },
+              { id: "room-b102", name: "B102", type: "room", roomId: "b102" },
+            ],
+          },
+          { id: "floor-b2", name: "2楼", type: "floor", roomCount: 12 },
+          { id: "floor-b3", name: "3楼", type: "floor", roomCount: 12 },
+        ],
+      },
+      {
+        id: "building-exp",
+        name: "实验楼",
+        type: "building",
+        roomCount: 24,
+      },
+      {
+        id: "building-lib",
+        name: "图书馆",
+        type: "building",
+        roomCount: 16,
+      },
+    ],
+  },
+  {
+    id: "campus-2",
+    name: "南校区",
+    type: "campus",
+    children: [
+      {
+        id: "building-c",
+        name: "教学楼C",
+        type: "building",
+        roomCount: 32,
+      },
+      {
+        id: "building-d",
+        name: "教学楼D",
+        type: "building",
+        roomCount: 28,
+      },
+    ],
+  },
+]
+
+interface BuildingTreeProps {
+  selectedNode: string | null
+  onSelectNode: (node: TreeNode) => void
+  onRoomClick?: (roomId: string) => void
+}
+
+export function BuildingTree({ selectedNode, onSelectNode, onRoomClick }: BuildingTreeProps) {
+  const router = useRouter()
+  const [expandedNodes, setExpandedNodes] = useState<string[]>([
+    "campus-1",
+    "building-a",
+  ])
+
+  const toggleNode = (id: string) => {
+    setExpandedNodes((prev) =>
+      prev.includes(id) ? prev.filter((n) => n !== id) : [...prev, id]
+    )
+  }
+
+  const getIcon = (type: string) => {
+    switch (type) {
+      case "campus":
+        return School
+      case "building":
+        return Building
+      case "floor":
+        return Layers
+      case "room":
+        return MapPin
+      default:
+        return Building
+    }
+  }
+
+  const handleNodeClick = (node: TreeNode) => {
+    // 如果是教室节点，直接跳转到驾驶舱
+    if (node.type === "room" && node.roomId) {
+      router.push(`/classroom/${node.roomId}`)
+      return
+    }
+    
+    // 如果有子节点，展开/收起
+    const hasChildren = node.children && node.children.length > 0
+    if (hasChildren) {
+      toggleNode(node.id)
+    }
+    
+    // 选中节点用于筛选
+    onSelectNode(node)
+  }
+
+  const renderNode = (node: TreeNode, depth: number = 0) => {
+    const Icon = getIcon(node.type)
+    const hasChildren = node.children && node.children.length > 0
+    const isExpanded = expandedNodes.includes(node.id)
+    const isSelected = selectedNode === node.id
+    const isRoom = node.type === "room"
+
+    return (
+      <div key={node.id}>
+        <button
+          onClick={() => handleNodeClick(node)}
+          className={cn(
+            "flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm transition-colors",
+            isSelected
+              ? "bg-primary/10 text-primary"
+              : "text-foreground hover:bg-secondary",
+            isRoom && "hover:bg-primary/10 hover:text-primary"
+          )}
+          style={{ paddingLeft: `${depth * 12 + 8}px` }}
+        >
+          {hasChildren ? (
+            <ChevronRight
+              className={cn(
+                "h-4 w-4 shrink-0 text-muted-foreground transition-transform",
+                isExpanded && "rotate-90"
+              )}
+            />
+          ) : (
+            <span className="w-4" />
+          )}
+          <Icon className={cn(
+            "h-4 w-4 shrink-0",
+            isRoom ? "text-primary" : "text-muted-foreground"
+          )} />
+          <span className="truncate">{node.name}</span>
+          {node.roomCount && (
+            <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+              {node.roomCount}
+            </span>
+          )}
+          {isRoom && (
+            <ChevronRight className="ml-auto h-3 w-3 text-muted-foreground" />
+          )}
+        </button>
+        {hasChildren && isExpanded && (
+          <div>
+            {node.children?.map((child) => renderNode(child, depth + 1))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="h-full overflow-auto">
+      <div className="mb-3 flex items-center justify-between px-2">
+        <h3 className="text-sm font-medium text-foreground">空间架构</h3>
+        <span className="text-xs text-muted-foreground">386 教室</span>
+      </div>
+      <div className="space-y-0.5">
+        {treeData.map((node) => renderNode(node))}
+      </div>
+    </div>
+  )
+}

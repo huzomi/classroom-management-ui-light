@@ -1,9 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
+import { BuildingTree, treeData, getAllRoomIds } from "@/components/classroom/building-tree"
+import { fetchClassrooms } from "@/lib/api/classroom"
+import type { RoomData } from "@/components/classroom/room-card"
 
 import {
   LayoutGrid,
@@ -14,104 +17,87 @@ import {
   VolumeX,
   Video,
   Play,
-  ChevronRight,
-  ChevronDown,
   Building2,
-  Layers,
-  DoorOpen,
-  MapPin,
 } from "lucide-react"
 
-const mockClassroomStructure = [
-  {
-    campus: "主校区",
-    buildings: [
-      {
-        building: "第一教学楼",
-        floors: [
-          {
-            floor: "1层",
-            classrooms: [
-              { id: "101", name: "101教室", status: "in-class", teacher: "张老师", course: "高等数学", camera: "teacher" },
-              { id: "102", name: "102教室", status: "idle", teacher: null, course: null, camera: "student" },
-              { id: "103", name: "103教室", status: "in-class", teacher: "李老师", course: "大学英语", camera: "teacher" },
-              { id: "104", name: "104教室", status: "in-class", teacher: "王老师", course: "物理实验", camera: "desktop" },
-            ],
-          },
-          {
-            floor: "2层",
-            classrooms: [
-              { id: "201", name: "201教室", status: "idle", teacher: null, course: null, camera: "teacher" },
-              { id: "202", name: "202教室", status: "fault", teacher: null, course: null, camera: "teacher" },
-              { id: "203", name: "203教室", status: "in-class", teacher: "赵老师", course: "化学实验", camera: "teacher" },
-            ],
-          },
-        ],
-      },
-      {
-        building: "实验楼",
-        floors: [
-          {
-            floor: "1层",
-            classrooms: [
-              {
-                id: "501",
-                name: "501教室",
-                status: "in-class",
-                teacher: "孙老师",
-                course: "计算机编程",
-                camera: "desktop",
-              },
-              { id: "502", name: "502教室", status: "idle", teacher: null, course: null, camera: "teacher" },
-            ],
-          },
-        ],
-      },
-    ],
-  },
-  {
-    campus: "南校区",
-    buildings: [
-      {
-        building: "综合楼",
-        floors: [
-          {
-            floor: "1层",
-            classrooms: [
-              { id: "N101", name: "N101教室", status: "in-class", teacher: "周老师", course: "数据结构", camera: "teacher" },
-              { id: "N102", name: "N102教室", status: "idle", teacher: null, course: null, camera: "student" },
-            ],
-          },
-        ],
-      },
-    ],
-  },
-]
+type DisplayStatus = "in-class" | "idle" | "fault"
 
-const allClassrooms = mockClassroomStructure.flatMap((campus) => 
-  campus.buildings.flatMap((b) => b.floors.flatMap((f) => f.classrooms))
-)
+function roomToDisplayStatus(status: RoomData["status"]): DisplayStatus {
+  if (status === "teaching" || status === "exam" || status === "self-study") return "in-class"
+  if (status === "fault" || status === "abnormal") return "fault"
+  return "idle"
+}
+
+const allRoomIds = getAllRoomIds(treeData)
 
 export default function MonitoringPage() {
   const [gridMode, setGridMode] = useState<"single" | "quad" | "six">("quad")
   const [filterStatus, setFilterStatus] = useState<string>("all")
   const [audioEnabled, setAudioEnabled] = useState<Set<string>>(new Set())
   const [showSidebar, setShowSidebar] = useState(true)
-  const [expandedCampuses, setExpandedCampuses] = useState<Set<string>>(new Set(["主校区"]))
-  const [expandedBuildings, setExpandedBuildings] = useState<Set<string>>(new Set(["主校区-第一教学楼"]))
-  const [expandedFloors, setExpandedFloors] = useState<Set<string>>(new Set(["主校区-第一教学楼-1层"]))
-  const [selectedClassrooms, setSelectedClassrooms] = useState<string[]>(["101", "102", "103", "104"])
+  const [selectedClassrooms, setSelectedClassrooms] = useState<string[]>(() =>
+    allRoomIds.slice(0, 4)
+  )
   const [autoRotate, setAutoRotate] = useState(false)
+  const [rooms, setRooms] = useState<RoomData[]>([])
+
+  useEffect(() => {
+    fetchClassrooms().then(setRooms)
+  }, [])
+
+  const roomDisplayMap = useMemo(() => {
+    const map = new Map<
+      string,
+      { id: string; name: string; status: DisplayStatus; teacher: string | null; course: string | null; camera: "teacher" | "student" | "desktop" }
+    >()
+    for (const r of rooms) {
+      map.set(r.id, {
+        id: r.id,
+        name: r.name,
+        status: roomToDisplayStatus(r.status),
+        teacher: r.currentCourse?.teacher ?? null,
+        course: r.currentCourse?.name ?? null,
+        camera: "teacher",
+      })
+    }
+    return map
+  }, [rooms])
+
+  const roomStatusMap = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const r of rooms) {
+      map[r.id] = roomToDisplayStatus(r.status)
+    }
+    return map
+  }, [rooms])
 
   const toggleAudio = (id: string) => {
-    const newAudio = new Set(audioEnabled)
-    if (newAudio.has(id)) {
-      newAudio.delete(id)
-    } else {
-      newAudio.add(id)
-    }
-    setAudioEnabled(newAudio)
+    setAudioEnabled((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
   }
+
+  const selectClassroom = (id: string) => {
+    setSelectedClassrooms((prev) =>
+      prev.includes(id) ? prev.filter((cId) => cId !== id) : [...prev, id]
+    )
+  }
+
+  const allClassrooms = useMemo(() => {
+    return allRoomIds
+      .map((id) => roomDisplayMap.get(id))
+      .filter(Boolean) as Array<{
+      id: string
+      name: string
+      status: DisplayStatus
+      teacher: string | null
+      course: string | null
+      camera: "teacher" | "student" | "desktop"
+    }>
+  }, [roomDisplayMap])
 
   const filteredClassrooms = allClassrooms.filter((c) => {
     if (filterStatus !== "all" && c.status !== filterStatus) return false
@@ -121,163 +107,32 @@ export default function MonitoringPage() {
   const gridClass = gridMode === "single" ? "grid-cols-1" : gridMode === "quad" ? "grid-cols-2" : "grid-cols-3"
   const maxDisplay = gridMode === "single" ? 1 : gridMode === "quad" ? 4 : 6
 
-  const displayClassrooms = filteredClassrooms.filter((c) => selectedClassrooms.includes(c.id)).slice(0, maxDisplay)
+  const displayClassrooms = filteredClassrooms
+    .filter((c) => selectedClassrooms.includes(c.id))
+    .slice(0, maxDisplay)
 
-  const toggleCampus = (campus: string) => {
-    const newExpanded = new Set(expandedCampuses)
-    if (newExpanded.has(campus)) {
-      newExpanded.delete(campus)
-    } else {
-      newExpanded.add(campus)
-    }
-    setExpandedCampuses(newExpanded)
-  }
-
-  const toggleBuilding = (buildingKey: string) => {
-    const newExpanded = new Set(expandedBuildings)
-    if (newExpanded.has(buildingKey)) {
-      newExpanded.delete(buildingKey)
-    } else {
-      newExpanded.add(buildingKey)
-    }
-    setExpandedBuildings(newExpanded)
-  }
-
-  const toggleFloor = (key: string) => {
-    const newExpanded = new Set(expandedFloors)
-    if (newExpanded.has(key)) {
-      newExpanded.delete(key)
-    } else {
-      newExpanded.add(key)
-    }
-    setExpandedFloors(newExpanded)
-  }
-
-  const selectClassroom = (id: string) => {
-    if (selectedClassrooms.includes(id)) {
-      setSelectedClassrooms(selectedClassrooms.filter((cId) => cId !== id))
-    } else {
-      setSelectedClassrooms([...selectedClassrooms, id])
-    }
-  }
-
-  
 
   return (
     <div className="flex h-full">
       {showSidebar && (
-        <div className="w-64 border-r border-border bg-card flex flex-col">
-          <div className="p-4 border-b border-border">
-            <h3 className="font-semibold text-sm">快速定位</h3>
+        <div className="w-64 shrink-0 border-r border-border bg-card flex flex-col">
+          <div className="flex-1 overflow-auto p-4">
+            <BuildingTree
+              title="快速定位"
+              subtitle={`已选 ${selectedClassrooms.length} / ${allRoomIds.length}`}
+              selectedRoomIds={selectedClassrooms}
+              onRoomClick={selectClassroom}
+              roomStatusMap={roomStatusMap}
+            />
           </div>
 
-          <div className="flex-1 overflow-auto p-2">
-            {mockClassroomStructure.map((campusData) => (
-              <div key={campusData.campus} className="mb-2">
-                {/* 校区层级 */}
-                <button
-                  onClick={() => toggleCampus(campusData.campus)}
-                  className="flex items-center gap-2 w-full p-2 hover:bg-accent rounded-md text-sm transition-colors"
-                >
-                  {expandedCampuses.has(campusData.campus) ? (
-                    <ChevronDown className="h-4 w-4" />
-                  ) : (
-                    <ChevronRight className="h-4 w-4" />
-                  )}
-                  <MapPin className="h-4 w-4 text-orange-500" />
-                  <span className="font-medium">{campusData.campus}</span>
-                </button>
-
-                {expandedCampuses.has(campusData.campus) && (
-                  <div className="ml-4 mt-1">
-                    {campusData.buildings.map((building) => {
-                      const buildingKey = `${campusData.campus}-${building.building}`
-                      return (
-                        <div key={buildingKey} className="mb-1">
-                          {/* 教学楼层级 */}
-                          <button
-                            onClick={() => toggleBuilding(buildingKey)}
-                            className="flex items-center gap-2 w-full p-2 hover:bg-accent rounded-md text-sm transition-colors"
-                          >
-                            {expandedBuildings.has(buildingKey) ? (
-                              <ChevronDown className="h-4 w-4" />
-                            ) : (
-                              <ChevronRight className="h-4 w-4" />
-                            )}
-                            <Building2 className="h-4 w-4 text-blue-500" />
-                            <span className="text-sm font-medium">{building.building}</span>
-                          </button>
-
-                          {expandedBuildings.has(buildingKey) && (
-                            <div className="ml-4 mt-1">
-                              {building.floors.map((floor) => {
-                                const floorKey = `${campusData.campus}-${building.building}-${floor.floor}`
-                                return (
-                                  <div key={floorKey} className="mb-1">
-                                    {/* 楼层层级 */}
-                                    <button
-                                      onClick={() => toggleFloor(floorKey)}
-                                      className="flex items-center gap-2 w-full p-2 hover:bg-accent rounded-md text-sm transition-colors"
-                                    >
-                                      {expandedFloors.has(floorKey) ? (
-                                        <ChevronDown className="h-3 w-3" />
-                                      ) : (
-                                        <ChevronRight className="h-3 w-3" />
-                                      )}
-                                      <Layers className="h-3 w-3 text-green-500" />
-                                      <span className="text-sm">{floor.floor}</span>
-                                    </button>
-
-                                    {expandedFloors.has(floorKey) && (
-                                      <div className="ml-4 mt-1 space-y-0.5">
-                                        {/* 教室层级 */}
-                                        {floor.classrooms.map((classroom) => (
-                                          <button
-                                            key={classroom.id}
-                                            onClick={() => selectClassroom(classroom.id)}
-                                            className={`flex items-center gap-2 w-full p-2 rounded-md text-sm transition-colors ${
-                                              selectedClassrooms.includes(classroom.id)
-                                                ? "bg-blue-500/10 text-blue-500 hover:bg-blue-500/20"
-                                                : "hover:bg-accent"
-                                            }`}
-                                          >
-                                            <DoorOpen className="h-3 w-3" />
-                                            <span className="text-xs">{classroom.name}</span>
-                                            {classroom.status === "in-class" && (
-                                              <Badge variant="default" className="ml-auto h-5 px-1.5 text-xs bg-blue-500">
-                                                上课
-                                              </Badge>
-                                            )}
-                                            {classroom.status === "fault" && (
-                                              <Badge variant="destructive" className="ml-auto h-5 px-1.5 text-xs">
-                                                故障
-                                              </Badge>
-                                            )}
-                                          </button>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                )
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-
-          <div className="p-3 border-t border-border">
+          <div className="shrink-0 p-3 border-t border-border">
             <div className="text-xs text-muted-foreground mb-2">已选择 {selectedClassrooms.length} 个教室</div>
             <Button
               size="sm"
               variant="outline"
               className="w-full bg-transparent"
-              onClick={() => setSelectedClassrooms(allClassrooms.map((c) => c.id))}
+              onClick={() => setSelectedClassrooms([...allRoomIds])}
             >
               选择全部
             </Button>

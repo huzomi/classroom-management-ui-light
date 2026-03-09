@@ -126,7 +126,9 @@ export function PlatformSidebar() {
             const Icon = item.icon
             const hasSubItems = item.subItems && item.subItems.length > 0
             const isExpanded = expandedItems.includes(item.title)
-            const isActive = item.href ? pathname === item.href : false
+            const isActive = item.href
+              ? pathname === item.href || pathname.startsWith(item.href + "/")
+              : false
             const hasActiveChild = hasSubItems ? item.subItems.some((sub) => pathname === sub.href) : false
 
             // 折叠状态下的渲染

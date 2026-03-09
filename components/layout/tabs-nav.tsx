@@ -31,10 +31,18 @@ export function TabsNav() {
     return () => window.removeEventListener("resize", checkScroll)
   }, [tabs])
 
-  // 滚动到当前激活的标签
+  // 滚动到当前激活的标签（含子路径时滚动到父级标签）
   useEffect(() => {
     if (scrollRef.current) {
-      const activeTab = scrollRef.current.querySelector(`[data-path="${pathname}"]`)
+      let targetPath = pathname
+      const exactTab = scrollRef.current.querySelector(`[data-path="${pathname}"]`)
+      if (!exactTab) {
+        const parentTab = Array.from(scrollRef.current.querySelectorAll("[data-path]")).find(
+          (el) => pathname.startsWith((el as HTMLElement).dataset.path + "/")
+        )
+        if (parentTab) targetPath = (parentTab as HTMLElement).dataset.path!
+      }
+      const activeTab = scrollRef.current.querySelector(`[data-path="${targetPath}"]`)
       if (activeTab) {
         activeTab.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" })
       }
@@ -58,7 +66,8 @@ export function TabsNav() {
         className="flex-1 flex items-center gap-1 overflow-x-auto scrollbar-hide"
       >
         {tabs.map((tab) => {
-          const isActive = pathname === tab.path
+          const isActive =
+            pathname === tab.path || pathname.startsWith(tab.path + "/")
           
           return (
             <div

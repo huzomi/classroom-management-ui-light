@@ -75,9 +75,11 @@ const classroomUsageData = [
   { name: "202", hours: 2.5 },
 ]
 
+const CHART_BLUE = "#60a5fa"
+
 const chartConfig = {
-  count: { label: "刷卡次数", color: "hsl(var(--primary))" },
-  hours: { label: "时长(小时)", color: "hsl(var(--primary))" },
+  count: { label: "刷卡次数", color: CHART_BLUE },
+  hours: { label: "时长(小时)", color: CHART_BLUE },
 }
 
 export default function ReportsPage() {
@@ -230,7 +232,7 @@ export default function ReportsPage() {
                     formatter={(value: number) => [`${value}次`, "刷卡次数"]}
                     contentStyle={{ fontSize: 12 }}
                   />
-                  <Bar dataKey="count" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="count" fill={CHART_BLUE} radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ChartContainer>
             </CardContent>
@@ -247,8 +249,8 @@ export default function ReportsPage() {
                 <AreaChart data={collegeData} margin={{ left: 8, right: 8 }}>
                   <defs>
                     <linearGradient id="collegeGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                      <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                      <stop offset="0%" stopColor={CHART_BLUE} stopOpacity={0.3} />
+                      <stop offset="100%" stopColor={CHART_BLUE} stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
@@ -259,15 +261,15 @@ export default function ReportsPage() {
                     labelFormatter={(label) => collegeData.find((d) => d.name === label)?.name ?? label}
                     contentStyle={{ fontSize: 12 }}
                   />
-                  <Area type="monotone" dataKey="count" stroke="hsl(var(--primary))" fill="url(#collegeGradient)" strokeWidth={2} />
+                  <Area type="monotone" dataKey="count" stroke={CHART_BLUE} fill="url(#collegeGradient)" strokeWidth={2} />
                 </AreaChart>
               </ChartContainer>
             </CardContent>
           </Card>
         </div>
 
-        {/* 底行：刷卡达人榜 + 使用教室排名 */}
-        <div className="grid grid-cols-2 gap-6">
+        {/* 底行：刷卡达人榜 + 使用教室排名，宽度比 2:3 */}
+        <div className="grid grid-cols-[2fr_3fr] gap-6">
           {/* 刷卡达人榜 */}
           <Card>
             <CardContent className="p-4">
@@ -299,7 +301,7 @@ export default function ReportsPage() {
                 <h3 className="font-semibold text-foreground">使用教室排名 (Top 10)</h3>
                 <ToggleSwitch value={usageRankMode} onChange={setUsageRankMode} />
               </div>
-              <ChartContainer config={chartConfig} className="h-[280px] w-full">
+              <ChartContainer config={chartConfig} className="h-[360px] w-full">
                 <BarChart data={usageData} margin={{ left: 8, right: 8 }}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
                   <XAxis dataKey="name" tick={{ fontSize: 11 }} />
@@ -308,7 +310,7 @@ export default function ReportsPage() {
                     formatter={(value: number) => [`${value}小时`, "使用时长"]}
                     contentStyle={{ fontSize: 12 }}
                   />
-                  <Bar dataKey="hours" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="hours" fill={CHART_BLUE} radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ChartContainer>
             </CardContent>

@@ -3,6 +3,8 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react"
 import { usePathname, useRouter } from "next/navigation"
 
+const TABS_STORAGE_KEY = "platform-tabs"
+
 // 菜单配置，用于获取页面标题
 const menuConfig: Record<string, string> = {
   "/": "首页",
@@ -49,15 +51,37 @@ interface TabsContextType {
 
 const TabsContext = createContext<TabsContextType | undefined>(undefined)
 
+const DEFAULT_TABS: Tab[] = [{ path: "/", title: "首页", closable: false }]
+
+function loadTabsFromStorage(): Tab[] {
+  try {
+    const stored = localStorage.getItem(TABS_STORAGE_KEY)
+    if (stored) {
+      const parsed = JSON.parse(stored) as Tab[]
+      if (Array.isArray(parsed) && parsed.length > 0 && parsed.some((t) => t.path === "/")) {
+        return parsed
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return DEFAULT_TABS
+}
+
 export function TabsProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
-  
-  // 初始化时添加首页标签
-  const [tabs, setTabs] = useState<Tab[]>([
-    { path: "/", title: "首页", closable: false }
-  ])
+
+  const [tabs, setTabs] = useState<Tab[]>(DEFAULT_TABS)
   const [activeTab, setActiveTab] = useState("/")
+  const [isHydrated, setIsHydrated] = useState(false)
+
+  // 客户端挂载后从 localStorage 恢复标签，避免 hydration 不一致
+  useEffect(() => {
+    const stored = loadTabsFromStorage()
+    setTabs(stored)
+    setIsHydrated(true)
+  }, [])
 
   // 根据路径获取页面标题
   const getPageTitle = useCallback((path: string): string => {
@@ -112,31 +136,46 @@ export function TabsProvider({ children }: { children: ReactNode }) {
   // 关闭所有标签（除了首页）
   const removeAllTabs = useCallback(() => {
     setTabs([{ path: "/", title: "首页", closable: false }])
+    localStorage.setItem(TABS_STORAGE_KEY, JSON.stringify([{ path: "/", title: "首页", closable: false }]))
     router.push("/")
   }, [router])
 
-  // 监听路由变化，自动添加标签并同步激活状态
+  // 持久化标签到 localStorage
   useEffect(() => {
-    if (pathname) {
-      console.log("[v0] pathname changed:", pathname)
-      console.log("[v0] current tabs:", tabs.map(t => t.path))
-      setActiveTab(pathname)
+    localStorage.setItem(TABS_STORAGE_KEY, JSON.stringify(tabs))
+  }, [tabs])
+
+  // 监听路由变化，自动添加标签并同步激活状态
+  // 子路径（如 /classroom-management/a101）不创建新标签，归属父级菜单
+  useEffect(() => {
+    if (!pathname || !isHydrated) return
+    const parentPath = Object.keys(menuConfig).find(
+      (p) => p !== "/" && pathname.startsWith(p + "/")
+    )
+    if (parentPath) {
+      setActiveTab(parentPath)
       setTabs(prev => {
-        const exists = prev.find(tab => tab.path === pathname)
-        console.log("[v0] tab exists:", exists)
-        if (exists) {
-          return prev
-        }
-        const newTabs = [...prev, { 
-          path: pathname, 
-          title: menuConfig[pathname] || "未知页面", 
-          closable: pathname !== "/" 
+        const exists = prev.find(tab => tab.path === parentPath)
+        if (exists) return prev
+        return [...prev, { 
+          path: parentPath, 
+          title: menuConfig[parentPath] || "未知页面", 
+          closable: parentPath !== "/" 
         }]
-        console.log("[v0] new tabs:", newTabs.map(t => t.path))
-        return newTabs
       })
+      return
     }
-  }, [pathname])
+    setActiveTab(pathname)
+    setTabs(prev => {
+      const exists = prev.find(tab => tab.path === pathname)
+      if (exists) return prev
+      return [...prev, { 
+        path: pathname, 
+        title: menuConfig[pathname] || "未知页面", 
+        closable: pathname !== "/" 
+      }]
+    })
+  }, [pathname, isHydrated])
 
   return (
     <TabsContext.Provider value={{ 
