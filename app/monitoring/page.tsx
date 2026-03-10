@@ -16,22 +16,31 @@ import {
   Video,
   Play,
   Building2,
+  ClipboardList,
 } from "lucide-react"
+import { TeachingEvaluationSheet, type CourseInfo } from "@/components/monitoring/teaching-evaluation-sheet"
 
 // 教室监控状态 Mock 数据（与 treeData 中的 roomId 对应）
 type MonitorStatus = "in-class" | "idle" | "fault"
 const mockClassroomStatus: Record<
   string,
-  { name: string; status: MonitorStatus; teacher: string | null; course: string | null; camera: "teacher" | "student" | "desktop" }
+  {
+    name: string
+    status: MonitorStatus
+    teacher: string | null
+    course: string | null
+    time: string | null
+    camera: "teacher" | "student" | "desktop"
+  }
 > = {
-  a101: { name: "A101", status: "in-class", teacher: "张老师", course: "高等数学", camera: "teacher" },
-  a102: { name: "A102", status: "idle", teacher: null, course: null, camera: "student" },
-  a103: { name: "A103", status: "in-class", teacher: "李老师", course: "大学英语", camera: "teacher" },
-  a201: { name: "A201", status: "idle", teacher: null, course: null, camera: "teacher" },
-  a202: { name: "A202", status: "fault", teacher: null, course: null, camera: "teacher" },
-  a203: { name: "A203", status: "in-class", teacher: "赵老师", course: "化学实验", camera: "teacher" },
-  b101: { name: "B101", status: "in-class", teacher: "孙老师", course: "计算机编程", camera: "desktop" },
-  b102: { name: "B102", status: "idle", teacher: null, course: null, camera: "teacher" },
+  a101: { name: "A101", status: "in-class", teacher: "张教授", course: "数据结构与算法", time: "08:00-09:40", camera: "teacher" },
+  a102: { name: "A102", status: "idle", teacher: null, course: null, time: null, camera: "student" },
+  a103: { name: "A103", status: "in-class", teacher: "李老师", course: "大学英语", time: "08:00-09:40", camera: "teacher" },
+  a201: { name: "A201", status: "idle", teacher: null, course: null, time: null, camera: "teacher" },
+  a202: { name: "A202", status: "fault", teacher: null, course: null, time: null, camera: "teacher" },
+  a203: { name: "A203", status: "in-class", teacher: "赵老师", course: "化学实验", time: "10:00-11:40", camera: "teacher" },
+  b101: { name: "B101", status: "in-class", teacher: "孙老师", course: "计算机编程", time: "14:00-15:40", camera: "desktop" },
+  b102: { name: "B102", status: "idle", teacher: null, course: null, time: null, camera: "teacher" },
 }
 
 export default function MonitoringPage() {
@@ -41,6 +50,19 @@ export default function MonitoringPage() {
   const [showSidebar, setShowSidebar] = useState(true)
   const [selectedClassrooms, setSelectedClassrooms] = useState<string[]>(["a101", "a102", "a103", "a201"])
   const [autoRotate, setAutoRotate] = useState(false)
+  const [evaluationOpen, setEvaluationOpen] = useState(false)
+  const [evaluationCourse, setEvaluationCourse] = useState<CourseInfo | null>(null)
+
+  const openEvaluation = (classroom: (typeof mockClassroomStatus)[string] & { id: string }) => {
+    if (classroom.status !== "in-class" || !classroom.course || !classroom.teacher) return
+    setEvaluationCourse({
+      room: classroom.name,
+      courseName: classroom.course,
+      teacher: classroom.teacher,
+      time: classroom.time ?? "—",
+    })
+    setEvaluationOpen(true)
+  }
 
   const toggleAudio = (id: string) => {
     const newAudio = new Set(audioEnabled)
@@ -208,6 +230,18 @@ export default function MonitoringPage() {
                   </div>
 
                   <div className="absolute bottom-3 right-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {classroom.status === "in-class" && classroom.course && (
+                      <Button
+                        size="sm"
+                        variant="default"
+                        className="h-8 gap-1.5 px-2 bg-primary hover:bg-primary/90"
+                        onClick={() => openEvaluation(classroom)}
+                        title="听评课评分"
+                      >
+                        <ClipboardList className="h-4 w-4" />
+                        评分
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       variant="default"
@@ -258,6 +292,15 @@ export default function MonitoringPage() {
           )}
         </div>
       </div>
+
+      <TeachingEvaluationSheet
+        open={evaluationOpen}
+        onOpenChange={setEvaluationOpen}
+        courseInfo={evaluationCourse}
+        onSave={(data) => {
+          console.log("保存听评课记录:", data)
+        }}
+      />
     </div>
   )
 }

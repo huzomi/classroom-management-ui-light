@@ -7,7 +7,7 @@ export default function Home() {
   const router = useRouter()
 
   useEffect(() => {
-    router.push("/classroom-management")
+    router.push("/dashboard")
   }, [router])
 
   return (

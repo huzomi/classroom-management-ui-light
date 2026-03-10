@@ -8,6 +8,7 @@ const TABS_STORAGE_KEY = "platform-tabs"
 // 菜单配置，用于获取页面标题
 const menuConfig: Record<string, string> = {
   "/": "首页",
+  "/dashboard": "今日看板",
   "/classroom-management": "教室管理",
   "/monitoring": "教学监控",
   "/teaching-integration/schedule": "课表管理",

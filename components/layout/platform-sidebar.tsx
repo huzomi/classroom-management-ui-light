@@ -4,6 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import {
+  LayoutDashboard,
   LayoutGrid,
   MonitorPlay,
   PackageOpen,
@@ -19,6 +20,11 @@ import { useSidebar } from "./sidebar-context"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 const navItems = [
+  {
+    title: "今日看板",
+    href: "/dashboard",
+    icon: LayoutDashboard,
+  },
   {
     title: "教室管理",
     href: "/classroom-management",

@@ -17,8 +17,11 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
-// 教室状态
-export type RoomStatus = "teaching" | "idle" | "self-study" | "exam" | "fault" | "abnormal"
+// 使用状态（互斥）：上课、空闲、自习、考试
+export type UsageStatus = "teaching" | "idle" | "self-study" | "exam"
+
+// 兼容旧 API：保留 RoomStatus 用于筛选等场景
+export type RoomStatus = UsageStatus | "fault" | "abnormal"
 
 // 故障详细信息
 export type FaultType = "mini-program" | "qr-code" | "ip-phone" | "inspection" | "disabled"
@@ -31,8 +34,11 @@ export interface RoomData {
   name: string
   building: string
   floor: string
-  status: RoomStatus
+  /** 使用状态（上课/空闲/自习/考试），与故障、异常独立，可同时存在 */
+  usageStatus: UsageStatus
+  /** 故障类型，有值表示存在故障（可与使用状态并存） */
   faultType?: FaultType
+  /** 异常类型，有值表示存在异常（可与使用状态并存） */
   abnormalType?: AbnormalType
   currentCourse?: {
     name: string
@@ -68,7 +74,7 @@ interface RoomCardProps {
   onSelect?: () => void
 }
 
-const statusConfig: Record<RoomStatus, { label: string; borderColor: string; bgColor: string }> = {
+const usageStatusConfig: Record<UsageStatus, { label: string; borderColor: string; bgColor: string }> = {
   teaching: {
     label: "上课",
     borderColor: "border-l-primary",
@@ -88,16 +94,6 @@ const statusConfig: Record<RoomStatus, { label: string; borderColor: string; bgC
     label: "考试",
     borderColor: "border-l-chart-3",
     bgColor: "bg-chart-3/5",
-  },
-  fault: {
-    label: "故障",
-    borderColor: "border-l-destructive",
-    bgColor: "bg-destructive/5",
-  },
-  abnormal: {
-    label: "异常",
-    borderColor: "border-l-chart-4",
-    bgColor: "bg-chart-4/5",
   },
 }
 
@@ -121,7 +117,7 @@ export function RoomCard({
   onSelect,
 }: RoomCardProps) {
   const router = useRouter()
-  const status = statusConfig[room.status]
+  const usageStatus = usageStatusConfig[room.usageStatus]
 
   const handleEnterCockpit = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -135,7 +131,7 @@ export function RoomCard({
         onClick={onSelect}
         className={cn(
           "flex cursor-pointer items-center gap-4 rounded-lg border border-l-4 bg-card p-4 transition-colors hover:bg-secondary/50",
-          status.borderColor
+          usageStatus.borderColor
         )}
       >
         <input
@@ -151,29 +147,37 @@ export function RoomCard({
           <span className="font-semibold text-foreground">{room.name}</span>
         </div>
 
-        {/* 教室状态 */}
-        <div className="w-16 shrink-0">
+        {/* 使用状态 + 故障/异常徽章 */}
+        <div className="flex w-28 shrink-0 flex-wrap items-center gap-1">
           <span className={cn(
             "inline-block rounded px-2 py-0.5 text-xs font-medium",
-            status.bgColor,
-            room.status === "teaching" && "text-primary",
-            room.status === "idle" && "text-muted-foreground",
-            room.status === "self-study" && "text-chart-2",
-            room.status === "exam" && "text-chart-3",
-            room.status === "fault" && "text-destructive",
-            room.status === "abnormal" && "text-chart-4",
+            usageStatus.bgColor,
+            room.usageStatus === "teaching" && "text-primary",
+            room.usageStatus === "idle" && "text-muted-foreground",
+            room.usageStatus === "self-study" && "text-chart-2",
+            room.usageStatus === "exam" && "text-chart-3",
           )}>
-            {status.label}
+            {usageStatus.label}
           </span>
+          {room.faultType && (
+            <span className="inline-block rounded px-2 py-0.5 text-xs font-medium bg-destructive/10 text-destructive">
+              故障
+            </span>
+          )}
+          {room.abnormalType && (
+            <span className="inline-block rounded px-2 py-0.5 text-xs font-medium bg-chart-4/10 text-chart-4">
+              异常
+            </span>
+          )}
         </div>
 
         {/* 故障/异常详细信息 */}
         <div className="w-24 shrink-0">
-          {room.status === "fault" && room.faultType ? (
+          {room.faultType ? (
             <span className="text-xs text-destructive">
               {faultTypeConfig[room.faultType]}
             </span>
-          ) : room.status === "abnormal" && room.abnormalType ? (
+          ) : room.abnormalType ? (
             <span className="text-xs text-chart-4">
               {abnormalTypeConfig[room.abnormalType]}
             </span>
@@ -241,12 +245,12 @@ export function RoomCard({
       onClick={onSelect}
       className={cn(
         "flex h-[280px] cursor-pointer flex-col rounded-xl border border-l-4 bg-card p-4 transition-all hover:shadow-lg",
-        status.borderColor
+        usageStatus.borderColor
       )}
     >
-      {/* 头部：选择框、教室名称、状态 - 固定高度 */}
-      <div className="flex h-7 shrink-0 items-center justify-between">
-        <div className="flex items-center gap-3">
+      {/* 头部：选择框、教室名称、使用状态 + 故障/异常徽章 - 固定高度 */}
+      <div className="flex h-7 shrink-0 items-center justify-between gap-2">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           <input
             type="checkbox"
             checked={selected}
@@ -254,29 +258,39 @@ export function RoomCard({
             className="h-4 w-4 shrink-0 cursor-pointer rounded border-border accent-primary"
             onClick={(e) => e.stopPropagation()}
           />
-          <span className="text-lg font-semibold text-foreground">{room.name}</span>
+          <span className="truncate text-lg font-semibold text-foreground">{room.name}</span>
         </div>
-        <span className={cn(
-          "rounded px-2 py-0.5 text-xs font-medium",
-          status.bgColor,
-          room.status === "teaching" && "text-primary",
-          room.status === "idle" && "text-muted-foreground",
-          room.status === "self-study" && "text-chart-2",
-          room.status === "exam" && "text-chart-3",
-          room.status === "fault" && "text-destructive",
-          room.status === "abnormal" && "text-chart-4",
-        )}>
-          {status.label}
-        </span>
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+          <span className={cn(
+            "rounded px-2 py-0.5 text-xs font-medium",
+            usageStatus.bgColor,
+            room.usageStatus === "teaching" && "text-primary",
+            room.usageStatus === "idle" && "text-muted-foreground",
+            room.usageStatus === "self-study" && "text-chart-2",
+            room.usageStatus === "exam" && "text-chart-3",
+          )}>
+            {usageStatus.label}
+          </span>
+          {room.faultType && (
+            <span className="rounded px-2 py-0.5 text-xs font-medium bg-destructive/10 text-destructive">
+              故障
+            </span>
+          )}
+          {room.abnormalType && (
+            <span className="rounded px-2 py-0.5 text-xs font-medium bg-chart-4/10 text-chart-4">
+              异常
+            </span>
+          )}
+        </div>
       </div>
 
       {/* 故障/异常详细信息 - 固定高度，无故障异常时空白占位 */}
       <div className="mt-2 h-8 shrink-0">
-        {room.status === "fault" && room.faultType ? (
+        {room.faultType ? (
           <div className="flex h-full items-center rounded-lg bg-destructive/10 px-3 text-sm text-destructive">
             {faultTypeConfig[room.faultType]}
           </div>
-        ) : room.status === "abnormal" && room.abnormalType ? (
+        ) : room.abnormalType ? (
           <div className="flex h-full items-center rounded-lg bg-chart-4/10 px-3 text-sm text-chart-4">
             {abnormalTypeConfig[room.abnormalType]}
           </div>

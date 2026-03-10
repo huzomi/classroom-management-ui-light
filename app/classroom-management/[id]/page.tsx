@@ -19,17 +19,15 @@ import {
   Calendar,
 } from "lucide-react"
 
-type RoomStatus = "teaching" | "idle" | "self-study" | "exam" | "fault" | "abnormal"
+type UsageStatus = "teaching" | "idle" | "self-study" | "exam"
 type FaultType = "mini-program" | "qr-code" | "ip-phone" | "inspection" | "disabled"
 type AbnormalType = "class-no-power" | "no-class-power-on"
 
-const statusConfig: Record<RoomStatus, { label: string; color: string }> = {
+const usageStatusConfig: Record<UsageStatus, { label: string; color: string }> = {
   teaching: { label: "上课", color: "text-primary bg-primary/10" },
   idle: { label: "空闲", color: "text-muted-foreground bg-muted/30" },
   "self-study": { label: "自习", color: "text-chart-2 bg-chart-2/10" },
   exam: { label: "考试", color: "text-chart-3 bg-chart-3/10" },
-  fault: { label: "故障", color: "text-destructive bg-destructive/10" },
-  abnormal: { label: "异常", color: "text-chart-4 bg-chart-4/10" },
 }
 
 const faultTypeConfig: Record<FaultType, string> = {
@@ -47,7 +45,7 @@ const abnormalTypeConfig: Record<AbnormalType, string> = {
 
 // Mock 教室数据 - TODO: 替换为 API 调用
 const mockRoomsData: Record<string, {
-  status: RoomStatus
+  usageStatus: UsageStatus
   faultType?: FaultType
   abnormalType?: AbnormalType
   building: string
@@ -63,7 +61,7 @@ const mockRoomsData: Record<string, {
   }
 }> = {
   a101: {
-    status: "teaching",
+    usageStatus: "teaching",
     building: "教学楼A",
     floor: "1楼",
     capacity: 120,
@@ -76,11 +74,11 @@ const mockRoomsData: Record<string, {
       status: "ongoing",
     },
   },
-  a102: { status: "idle", building: "教学楼A", floor: "1楼", capacity: 80 },
-  a103: { status: "fault", faultType: "mini-program", building: "教学楼A", floor: "1楼", capacity: 100 },
-  a201: { status: "self-study", building: "教学楼A", floor: "2楼", capacity: 60 },
+  a102: { usageStatus: "idle", building: "教学楼A", floor: "1楼", capacity: 80 },
+  a103: { usageStatus: "idle", faultType: "mini-program", building: "教学楼A", floor: "1楼", capacity: 100 },
+  a201: { usageStatus: "self-study", building: "教学楼A", floor: "2楼", capacity: 60 },
   a202: {
-    status: "exam",
+    usageStatus: "exam",
     building: "教学楼A",
     floor: "2楼",
     capacity: 120,
@@ -94,7 +92,7 @@ const mockRoomsData: Record<string, {
     },
   },
   b101: {
-    status: "teaching",
+    usageStatus: "teaching",
     building: "教学楼B",
     floor: "1楼",
     capacity: 100,
@@ -107,9 +105,9 @@ const mockRoomsData: Record<string, {
       status: "ongoing",
     },
   },
-  b102: { status: "fault", faultType: "ip-phone", building: "教学楼B", floor: "1楼", capacity: 80 },
+  b102: { usageStatus: "idle", faultType: "ip-phone", building: "教学楼B", floor: "1楼", capacity: 80 },
   a301: {
-    status: "abnormal",
+    usageStatus: "teaching",
     abnormalType: "class-no-power",
     building: "教学楼A",
     floor: "3楼",
@@ -124,7 +122,7 @@ const mockRoomsData: Record<string, {
     },
   },
   a302: {
-    status: "abnormal",
+    usageStatus: "idle",
     abnormalType: "no-class-power-on",
     building: "教学楼A",
     floor: "3楼",
@@ -134,7 +132,7 @@ const mockRoomsData: Record<string, {
 
 function getRoomData(id: string) {
   const roomInfo = mockRoomsData[id.toLowerCase()] || {
-    status: "idle" as RoomStatus,
+    usageStatus: "idle" as UsageStatus,
     building: "教学楼A",
     floor: "1楼",
     capacity: 100,
@@ -146,7 +144,7 @@ function getRoomData(id: string) {
     building: roomInfo.building,
     floor: roomInfo.floor,
     capacity: roomInfo.capacity,
-    status: roomInfo.status,
+    usageStatus: roomInfo.usageStatus,
     faultType: roomInfo.faultType,
     abnormalType: roomInfo.abnormalType,
     currentCourse: roomInfo.currentCourse || {
@@ -198,18 +196,18 @@ export default function ClassroomDetailPage({
               </h1>
               <span className={cn(
                 "rounded px-2 py-0.5 text-xs font-medium",
-                statusConfig[room.status].color
+                usageStatusConfig[room.usageStatus].color
               )}>
-                {statusConfig[room.status].label}
+                {usageStatusConfig[room.usageStatus].label}
               </span>
-              {room.status === "fault" && room.faultType && (
-                <span className="text-xs text-destructive">
-                  ({faultTypeConfig[room.faultType]})
+              {room.faultType && (
+                <span className="rounded px-2 py-0.5 text-xs font-medium bg-destructive/10 text-destructive">
+                  故障 ({faultTypeConfig[room.faultType]})
                 </span>
               )}
-              {room.status === "abnormal" && room.abnormalType && (
-                <span className="text-xs text-chart-4">
-                  ({abnormalTypeConfig[room.abnormalType]})
+              {room.abnormalType && (
+                <span className="rounded px-2 py-0.5 text-xs font-medium bg-chart-4/10 text-chart-4">
+                  异常 ({abnormalTypeConfig[room.abnormalType]})
                 </span>
               )}
             </div>

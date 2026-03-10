@@ -11,7 +11,7 @@ const MOCK_ROOMS: RoomData[] = [
     name: "A101",
     building: "教学楼A",
     floor: "1楼",
-    status: "teaching",
+    usageStatus: "teaching",
     currentCourse: {
       name: "数据结构与算法",
       teacher: "张教授",
@@ -27,7 +27,7 @@ const MOCK_ROOMS: RoomData[] = [
     name: "A102",
     building: "教学楼A",
     floor: "1楼",
-    status: "idle",
+    usageStatus: "idle",
     devices: { pc: "online", projector: "online", light: "off", ac: "off", door: "unlocked" },
     iotInfo: { controller: "online" },
     environment: { temp: 22, humidity: 52, co2: 420 },
@@ -38,7 +38,7 @@ const MOCK_ROOMS: RoomData[] = [
     name: "A103",
     building: "教学楼A",
     floor: "1楼",
-    status: "fault",
+    usageStatus: "idle",
     faultType: "mini-program",
     devices: { pc: "offline", projector: "online", light: "on", ac: "on", door: "locked" },
     iotInfo: { controller: "offline" },
@@ -50,7 +50,7 @@ const MOCK_ROOMS: RoomData[] = [
     name: "A201",
     building: "教学楼A",
     floor: "2楼",
-    status: "teaching",
+    usageStatus: "teaching",
     currentCourse: { name: "线性代数", teacher: "李教授", time: "08:00-09:40" },
     devices: { pc: "online", projector: "online", light: "on", ac: "on", door: "locked" },
     iotInfo: { controller: "online" },
@@ -62,7 +62,7 @@ const MOCK_ROOMS: RoomData[] = [
     name: "A202",
     building: "教学楼A",
     floor: "2楼",
-    status: "exam",
+    usageStatus: "exam",
     currentCourse: { name: "期中考试", teacher: "监考组", time: "09:00-11:00" },
     devices: { pc: "online", projector: "offline", light: "on", ac: "on", door: "locked" },
     iotInfo: { controller: "online" },
@@ -74,7 +74,7 @@ const MOCK_ROOMS: RoomData[] = [
     name: "A203",
     building: "教学楼A",
     floor: "2楼",
-    status: "self-study",
+    usageStatus: "self-study",
     devices: { pc: "online", projector: "online", light: "on", ac: "on", door: "unlocked" },
     iotInfo: { controller: "online" },
     environment: { temp: 21, humidity: 48, co2: 400 },
@@ -85,7 +85,7 @@ const MOCK_ROOMS: RoomData[] = [
     name: "B101",
     building: "教学楼B",
     floor: "1楼",
-    status: "teaching",
+    usageStatus: "teaching",
     currentCourse: { name: "大学英语", teacher: "王老师", time: "08:00-09:40" },
     devices: { pc: "online", projector: "online", light: "on", ac: "on", door: "locked" },
     iotInfo: { controller: "online" },
@@ -97,7 +97,7 @@ const MOCK_ROOMS: RoomData[] = [
     name: "B102",
     building: "教学楼B",
     floor: "1楼",
-    status: "fault",
+    usageStatus: "idle",
     faultType: "ip-phone",
     devices: { pc: "online", projector: "offline", light: "off", ac: "off", door: "unlocked" },
     iotInfo: { controller: "online" },
@@ -109,7 +109,7 @@ const MOCK_ROOMS: RoomData[] = [
     name: "A301",
     building: "教学楼A",
     floor: "3楼",
-    status: "abnormal",
+    usageStatus: "teaching",
     abnormalType: "class-no-power",
     currentCourse: { name: "高等数学", teacher: "陈教授", time: "08:00-09:40" },
     devices: { pc: "offline", projector: "offline", light: "off", ac: "off", door: "unlocked" },
@@ -122,7 +122,7 @@ const MOCK_ROOMS: RoomData[] = [
     name: "A302",
     building: "教学楼A",
     floor: "3楼",
-    status: "abnormal",
+    usageStatus: "idle",
     abnormalType: "no-class-power-on",
     devices: { pc: "online", projector: "online", light: "on", ac: "on", door: "unlocked" },
     iotInfo: { controller: "online" },
@@ -143,8 +143,16 @@ export async function fetchClassrooms(params?: {
   let filtered = [...MOCK_ROOMS]
   if (params?.building) filtered = filtered.filter((r) => r.building === params.building)
   if (params?.floor) filtered = filtered.filter((r) => r.floor === params.floor)
-  if (params?.status && params.status !== "all")
-    filtered = filtered.filter((r) => r.status === params.status)
+  if (params?.status && params.status !== "all") {
+    const s = params.status
+    if (s === "fault") {
+      filtered = filtered.filter((r) => !!r.faultType)
+    } else if (s === "abnormal") {
+      filtered = filtered.filter((r) => !!r.abnormalType)
+    } else {
+      filtered = filtered.filter((r) => r.usageStatus === s)
+    }
+  }
   if (params?.search) {
     const q = params.search.toLowerCase()
     filtered = filtered.filter((r) => r.name.toLowerCase().includes(q))
