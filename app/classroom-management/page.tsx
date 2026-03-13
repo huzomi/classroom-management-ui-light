@@ -2,45 +2,43 @@
 
 import { useState, useEffect } from "react"
 import { BuildingTree, type TreeNode } from "@/components/classroom/building-tree"
-import { RoomCard, RoomData, RoomStatus } from "@/components/classroom/room-card"
+import { RoomCard, type RoomData, type RoomStatus, type UsageStatus } from "@/components/classroom/room-card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
   Search,
   LayoutGrid,
   List,
-  Bell,
-  User,
   Power,
   PowerOff,
   Lock,
   Unlock,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { fetchClassrooms } from "@/lib/api/classroom"
+import { searchRooms } from "@/lib/api/room"
 
 type ViewMode = "list" | "card"
-type StatusFilter = "all" | RoomStatus
+type StatusFilter = "all" | RoomStatus | "offline"
 
 function getFilterFromNode(
   treeData: TreeNode[],
   nodeId: string | null
-): { building?: string; floor?: string } {
+): { buildingId?: string; floorId?: string } {
   if (!nodeId) return {}
 
   const findNode = (
     nodes: TreeNode[],
     id: string,
-    parent?: { building?: string; floor?: string }
-  ): { node?: TreeNode; context?: { building?: string; floor?: string } } => {
+    parent?: { buildingId?: string; floorId?: string }
+  ): { node?: TreeNode; context?: { buildingId?: string; floorId?: string } } => {
     for (const node of nodes) {
       if (node.id === id) return { node, context: parent }
       if (node.children) {
         const newContext =
           node.type === "building"
-            ? { building: node.name }
+            ? { buildingId: node.id }
             : node.type === "floor"
-              ? { ...parent, floor: node.name }
+              ? { ...parent, floorId: node.id }
               : parent
         const result = findNode(node.children, id, newContext)
         if (result.node) return result
@@ -52,9 +50,68 @@ function getFilterFromNode(
   const { node, context } = findNode(treeData, nodeId)
   if (!node) return {}
 
-  if (node.type === "building") return { building: node.name }
-  if (node.type === "floor") return { ...context, floor: node.name }
+  if (node.type === "building") return { buildingId: node.id }
+  if (node.type === "floor") return { ...context, floorId: node.id }
   return {}
+}
+
+function mapSearchVOToRoomData(vo: import("@/lib/api/room").RoomSearchVO): RoomData {
+  const statusMap: Record<number, UsageStatus> = {
+    1: "teaching",
+    2: "idle",
+    3: "offline",
+    4: "self-study",
+    5: "exam",
+  }
+  const env = vo.environmentalInfo ?? {}
+  return {
+    id: vo.roomId,
+    name: vo.classRoom,
+    building: "",
+    floor: "",
+    usageStatus: statusMap[vo.status] ?? "idle",
+    faultType: vo.isFault === 1 ? "ip-phone" : undefined,
+    abnormalType: vo.isFault === 3 ? "no-class-power-on" : undefined,
+    currentCourse:
+      vo.courseName
+        ? {
+            name: vo.courseName,
+            teacher: vo.teacherName ?? "",
+            time: vo.lessonStartTime && vo.lessonEndTime
+              ? `${vo.lessonStartTime.slice(0, 5)}-${vo.lessonEndTime.slice(0, 5)}`
+              : "",
+          }
+        : undefined,
+    devices: { pc: "online", projector: "online", light: "on", ac: "on", door: "locked" },
+    iotInfo: { controller: vo.status === 3 ? "offline" : "online" },
+    environment: {
+      temp: Number(env["温度"] ?? 0),
+      humidity: Number(env["湿度"] ?? 0),
+      co2: Number(env["CO2"] ?? 0),
+    },
+    power: 0,
+  }
+}
+
+const STATUS_TO_API: Record<StatusFilter, number | undefined> = {
+  all: undefined,
+  teaching: 1,
+  idle: 2,
+  offline: 3,
+  "self-study": 4,
+  exam: 5,
+  fault: undefined,
+  abnormal: undefined,
+}
+const IS_FAULT_MAP: Record<StatusFilter, number | undefined> = {
+  all: undefined,
+  teaching: undefined,
+  idle: undefined,
+  offline: undefined,
+  "self-study": undefined,
+  exam: undefined,
+  fault: 1,
+  abnormal: 3,
 }
 
 export default function ClassroomManagementPage() {
@@ -65,21 +122,39 @@ export default function ClassroomManagementPage() {
   const [selectedRooms, setSelectedRooms] = useState<string[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [rooms, setRooms] = useState<RoomData[]>([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  const pageSize = 20
   const [loading, setLoading] = useState(true)
 
   const treeFilter = getFilterFromNode(treeData, selectedNode)
 
   useEffect(() => {
     setLoading(true)
-    fetchClassrooms({
-      building: treeFilter.building,
-      floor: treeFilter.floor,
-      status: statusFilter === "all" ? undefined : statusFilter,
-      search: searchQuery || undefined,
+    searchRooms({
+      buildingId: treeFilter.buildingId,
+      floorId: treeFilter.floorId,
+      classRoom: searchQuery || undefined,
+      status: STATUS_TO_API[statusFilter],
+      isFault: IS_FAULT_MAP[statusFilter],
+      page,
+      pageSize,
     })
-      .then(setRooms)
+      .then((res) => {
+        setRooms(res.records.map(mapSearchVOToRoomData))
+        setTotal(res.total)
+      })
+      .catch((err) => {
+        console.error("加载教室列表失败:", err)
+        setRooms([])
+        setTotal(0)
+      })
       .finally(() => setLoading(false))
-  }, [treeFilter.building, treeFilter.floor, statusFilter, searchQuery])
+  }, [treeFilter.buildingId, treeFilter.floorId, statusFilter, searchQuery, page])
+
+  useEffect(() => {
+    setPage(1)
+  }, [treeFilter.buildingId, treeFilter.floorId, statusFilter, searchQuery])
 
   const filteredRooms = rooms
 
@@ -105,6 +180,7 @@ export default function ClassroomManagementPage() {
     { key: "all", label: "全部" },
     { key: "teaching", label: "上课" },
     { key: "idle", label: "空闲" },
+    { key: "offline", label: "离线" },
     { key: "self-study", label: "自习" },
     { key: "exam", label: "考试" },
     { key: "fault", label: "故障" },
@@ -275,6 +351,30 @@ export default function ClassroomManagementPage() {
             </div>
           )}
         </div>
+
+        {total > pageSize && (
+          <div className="flex items-center justify-center gap-2 py-4">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => p - 1)}
+            >
+              上一页
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              第 {page} 页 / 共 {Math.ceil(total / pageSize)} 页
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= Math.ceil(total / pageSize)}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              下一页
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   )

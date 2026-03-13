@@ -17,8 +17,8 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
-// 使用状态（互斥）：上课、空闲、自习、考试
-export type UsageStatus = "teaching" | "idle" | "self-study" | "exam"
+// 使用状态（互斥）：上课、空闲、自习、考试、离线
+export type UsageStatus = "teaching" | "idle" | "self-study" | "exam" | "offline"
 
 // 兼容旧 API：保留 RoomStatus 用于筛选等场景
 export type RoomStatus = UsageStatus | "fault" | "abnormal"
@@ -84,6 +84,11 @@ const usageStatusConfig: Record<UsageStatus, { label: string; borderColor: strin
     label: "空闲",
     borderColor: "border-l-muted-foreground",
     bgColor: "bg-muted/30",
+  },
+  offline: {
+    label: "离线",
+    borderColor: "border-l-muted-foreground",
+    bgColor: "bg-muted/50",
   },
   "self-study": {
     label: "自习",

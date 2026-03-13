@@ -521,8 +521,8 @@
 | buildingId | String | 否 | 楼栋ID |
 | floorId | String | 否 | 楼层ID |
 | classRoom | String | 否 | 教室名关键词 |
-| status | Integer | 否 | 1-上课 2-下课 3-离线 |
-| isFault | Integer | 否 | 1-是故障 2-否 |
+| status | Integer | 否 | 1-上课 2-空闲 3-离线 4-自习 5-考试|
+| isFault | Integer | 否 | 1-是故障 2-否 3-异常|
 | page | Integer | 是 | 页码 |
 | pageSize | Integer | 是 | 每页大小 |
 
@@ -2006,7 +2006,7 @@
 |------|------|------|------|
 | workId | String | 是 | 工单ID |
 | equipmentId | String | 否 | 设备ID |
-| status | Integer | 是 | 处理状态 |
+| status | Integer | 是 | 处理状态 '0-未处理；1-延后处理；2-已解决；3-不需要处理' |
 | handleDetail | String | 否 | 处理详情 |
 
 - **响应**: `Result<String>`
@@ -2127,7 +2127,7 @@
 
 ```json
 {
-  "queryDate": "2026-03-13"
+  "queryDate": "2026-03-13 00:00:00"
 }
 ```
 
@@ -2144,7 +2144,7 @@
 | date | String | 日期 |
 | patrolCount | Integer | 巡检次数 |
 | failCount | Integer | 异常次数 |
-| status | Integer | 状态 |
+| status | Integer | 巡检状态 | 1为正常 2为异常 3为未巡检
 
 ---
 

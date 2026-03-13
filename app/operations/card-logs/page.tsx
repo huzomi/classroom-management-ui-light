@@ -1,42 +1,86 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Download, Search, RefreshCw, Wrench, Settings, ChevronUp, ChevronDown, Info, Trash2 } from "lucide-react"
+import { Download, Search, RefreshCw, ChevronUp, ChevronDown, Info, ChevronLeft, ChevronRight } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-
-// 刷卡日志数据
-const cardLogsData = [
-  { id: 1, cardNo: "2954237737", name: "李佳星", studentId: "2023073", college: "国际交流与合作处", classroom: "410", result: "刷卡成功", time: "2023/12/11 14:04:43" },
-  { id: 2, cardNo: "322951548", name: "詹志兰", studentId: "1990007", college: "机械工程与自动化学院", classroom: "120", result: "刷卡成功", time: "2023/12/11 13:57:59" },
-  { id: 3, cardNo: "709735754", name: "董文卓", studentId: "2110030212", college: "外国语学院", classroom: "319", result: "刷卡成功", time: "2023/12/11 13:54:40" },
-  { id: 4, cardNo: "183680979", name: "韦炜", studentId: "2011013", college: "纺织科学与工程学院", classroom: "112", result: "刷卡成功", time: "2023/12/11 13:53:21" },
-  { id: 5, cardNo: "193880691", name: "陶咏真", studentId: "2007039", college: "材料科学与工程学院", classroom: "218", result: "刷卡成功", time: "2023/12/11 13:52:25" },
-]
+import { Skeleton } from "@/components/ui/skeleton"
+import {
+  getPayCardLogPage,
+  CARD_RESULT_MAP,
+  type PayCardLogPageVO,
+} from "@/lib/api/pay-card-log"
 
 export default function CardLogsPage() {
-  const [searchKeyword, setSearchKeyword] = useState("")
-  const [searchClassroom, setSearchClassroom] = useState("")
-  const [selectedRows, setSelectedRows] = useState<number[]>([])
+  const [searchCardNo, setSearchCardNo] = useState("")
+  const [searchName, setSearchName] = useState("")
+  const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
 
+  const [logs, setLogs] = useState<PayCardLogPageVO[]>([])
+  const [total, setTotal] = useState(0)
+  const [loading, setLoading] = useState(false)
+
+  const [queryCardNo, setQueryCardNo] = useState("")
+  const [queryName, setQueryName] = useState("")
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+
+  const fetchLogs = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await getPayCardLogPage({
+        page: currentPage,
+        size: pageSize,
+        cardNo: queryCardNo || undefined,
+        name: queryName || undefined,
+      })
+      setLogs(res.records ?? [])
+      setTotal(res.total ?? 0)
+    } catch (err) {
+      console.error("获取刷卡记录失败", err)
+    } finally {
+      setLoading(false)
+    }
+  }, [currentPage, pageSize, queryCardNo, queryName])
+
+  useEffect(() => {
+    fetchLogs()
+  }, [fetchLogs])
+
+  const handleSearch = () => {
+    setQueryCardNo(searchCardNo)
+    setQueryName(searchName)
+    setCurrentPage(1)
+  }
+
   const handleReset = () => {
-    setSearchKeyword("")
-    setSearchClassroom("")
+    setSearchCardNo("")
+    setSearchName("")
+    setQueryCardNo("")
+    setQueryName("")
+    setCurrentPage(1)
   }
 
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) setSelectedRows(cardLogsData.map((l) => l.id))
-    else setSelectedRows([])
-  }
+  const getResultInfo = (result: number) =>
+    CARD_RESULT_MAP[result] ?? { label: `未知(${result})`, className: "text-muted-foreground" }
 
-  const handleSelectRow = (id: number, checked: boolean) => {
-    if (checked) setSelectedRows([...selectedRows, id])
-    else setSelectedRows(selectedRows.filter((rid) => rid !== id))
+  const getPageNumbers = () => {
+    const pages: (number | "...")[] = []
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i)
+    } else {
+      pages.push(1)
+      if (currentPage > 3) pages.push("...")
+      const start = Math.max(2, currentPage - 1)
+      const end = Math.min(totalPages - 1, currentPage + 1)
+      for (let i = start; i <= end; i++) pages.push(i)
+      if (currentPage < totalPages - 2) pages.push("...")
+      pages.push(totalPages)
+    }
+    return pages
   }
-
-  const totalItems = 9051
 
   return (
     <main className="flex-1 overflow-auto p-6">
@@ -44,24 +88,24 @@ export default function CardLogsPage() {
         {/* 筛选栏 */}
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground whitespace-nowrap">卡号/姓名:</span>
+            <span className="text-sm text-muted-foreground whitespace-nowrap">卡号:</span>
             <Input
-              placeholder="请输入卡号或姓名"
-              value={searchKeyword}
-              onChange={(e) => setSearchKeyword(e.target.value)}
+              placeholder="请输入卡号"
+              value={searchCardNo}
+              onChange={(e) => setSearchCardNo(e.target.value)}
               className="w-48"
             />
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground whitespace-nowrap">刷卡教室:</span>
+            <span className="text-sm text-muted-foreground whitespace-nowrap">姓名:</span>
             <Input
-              placeholder="请输入教室"
-              value={searchClassroom}
-              onChange={(e) => setSearchClassroom(e.target.value)}
+              placeholder="请输入姓名"
+              value={searchName}
+              onChange={(e) => setSearchName(e.target.value)}
               className="w-48"
             />
           </div>
-          <Button>
+          <Button onClick={handleSearch}>
             <Search className="h-4 w-4 mr-1" />
             查询
           </Button>
@@ -78,30 +122,12 @@ export default function CardLogsPage() {
               <Download className="h-4 w-4 mr-1" />
               导出
             </Button>
-            {selectedRows.length > 0 && (
-              <Button variant="outline" className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive">
-                <Trash2 className="h-4 w-4 mr-1" />
-                批量删除
-              </Button>
-            )}
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" onClick={fetchLogs}>
               <RefreshCw className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon">
-              <Wrench className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon">
-              <Settings className="h-4 w-4" />
-            </Button>
           </div>
-        </div>
-
-        {/* 选中提示 */}
-        <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/30 px-4 py-2 rounded">
-          <Info className="h-4 w-4" />
-          <span>{selectedRows.length > 0 ? `已选中 ${selectedRows.length} 条数据` : "未选中任何数据"}</span>
         </div>
 
         {/* 数据表格 */}
@@ -109,14 +135,6 @@ export default function CardLogsPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border bg-muted/30">
-                <th className="p-3 text-center w-12">
-                  <input
-                    type="checkbox"
-                    checked={selectedRows.length === cardLogsData.length && cardLogsData.length > 0}
-                    onChange={(e) => handleSelectAll(e.target.checked)}
-                    className="h-4 w-4"
-                  />
-                </th>
                 <th className="p-3 text-center text-sm font-medium text-muted-foreground">
                   <div className="flex items-center justify-center gap-1">
                     卡号
@@ -143,38 +161,87 @@ export default function CardLogsPage() {
               </tr>
             </thead>
             <tbody>
-              {cardLogsData.map((log) => (
-                <tr key={log.id} className="border-b border-border hover:bg-muted/20">
-                  <td className="p-3 text-center">
-                    <input
-                      type="checkbox"
-                      checked={selectedRows.includes(log.id)}
-                      onChange={(e) => handleSelectRow(log.id, e.target.checked)}
-                      className="h-4 w-4"
-                    />
+              {loading ? (
+                Array.from({ length: pageSize }).map((_, i) => (
+                  <tr key={i} className="border-b border-border">
+                    {Array.from({ length: 8 }).map((_, j) => (
+                      <td key={j} className="p-3">
+                        <Skeleton className="h-4 w-full" />
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              ) : logs.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="p-8 text-center text-sm text-muted-foreground">
+                    暂无数据
                   </td>
-                  <td className="p-3 text-center text-sm font-mono">{log.cardNo}</td>
-                  <td className="p-3 text-center text-sm">{log.name}</td>
-                  <td className="p-3 text-center text-sm">{log.studentId}</td>
-                  <td className="p-3 text-center text-sm max-w-[200px] truncate" title={log.college}>{log.college}</td>
-                  <td className="p-3 text-center text-sm">{log.classroom}</td>
-                  <td className="p-3 text-center text-sm text-green-600">{log.result}</td>
-                  <td className="p-3 text-center text-sm">{log.time}</td>
                 </tr>
-              ))}
+              ) : (
+                logs.map((log) => {
+                  const resultInfo = getResultInfo(log.result)
+                  return (
+                    <tr key={log.id} className="border-b border-border hover:bg-muted/20">
+                      <td className="p-3 text-center text-sm font-mono">{log.cardNo || "-"}</td>
+                      <td className="p-3 text-center text-sm">{log.name || "-"}</td>
+                      <td className="p-3 text-center text-sm">{log.jobNumber || "-"}</td>
+                      <td className="p-3 text-center text-sm max-w-[200px] truncate" title={log.college}>{log.college || "-"}</td>
+                      <td className="p-3 text-center text-sm">{log.roomName || "-"}</td>
+                      <td className={`p-3 text-center text-sm ${resultInfo.className}`}>{resultInfo.label}</td>
+                      <td className="p-3 text-center text-sm">{log.actionTime || "-"}</td>
+                    </tr>
+                  )
+                })
+              )}
             </tbody>
           </table>
         </div>
 
         {/* 分页 */}
         <div className="flex items-center justify-end gap-4">
-          <span className="text-sm text-muted-foreground">共 {totalItems} 条数据</span>
+          <span className="text-sm text-muted-foreground">共 {total} 条数据</span>
           <div className="flex items-center gap-1">
-            <Button variant="outline" size="sm" className="h-8 w-8 p-0 bg-primary text-primary-foreground">
-              1
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 w-8 p-0"
+              disabled={currentPage <= 1}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            {getPageNumbers().map((p, i) =>
+              p === "..." ? (
+                <span key={`dot-${i}`} className="px-1 text-muted-foreground">...</span>
+              ) : (
+                <Button
+                  key={p}
+                  variant={p === currentPage ? "default" : "outline"}
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() => setCurrentPage(p)}
+                >
+                  {p}
+                </Button>
+              )
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 w-8 p-0"
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            >
+              <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
-          <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+          <Select
+            value={String(pageSize)}
+            onValueChange={(v) => {
+              setPageSize(Number(v))
+              setCurrentPage(1)
+            }}
+          >
             <SelectTrigger className="w-24 h-8">
               <SelectValue />
             </SelectTrigger>

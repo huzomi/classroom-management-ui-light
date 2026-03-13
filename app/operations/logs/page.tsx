@@ -1,48 +1,78 @@
 "use client"
 
-import { useState } from "react"
-// 操作日志页面
+import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
-import { Download, Search, RefreshCw, Wrench, Settings, ChevronUp, ChevronDown, Info, Trash2 } from "lucide-react"
+import { Download, Search, RefreshCw, ChevronUp, ChevronDown, Info, ChevronLeft, ChevronRight } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Input } from "@/components/ui/input"
-
-// 模拟日志数据
-const logsData = [
-  { id: 1, classroom: "102", operationType: "手动控制", content: "控制状态回报102教室.null:大屏.1", ip: "192.168.10.204", clientType: "", time: "2026-03-03 09:24:36" },
-  { id: 2, classroom: "102", operationType: "手动控制", content: "控制状态回报102教室.null:幕布.1", ip: "192.168.10.204", clientType: "", time: "2026-03-03 09:24:36" },
-  { id: 3, classroom: "102", operationType: "手动控制", content: "控制状态回报102教室.null:灯光.1", ip: "192.168.10.204", clientType: "", time: "2026-03-03 09:24:36" },
-  { id: 4, classroom: "102", operationType: "手动控制", content: "控制状态回报102教室.上课/下课.1", ip: "192.168.10.204", clientType: "", time: "2026-03-03 09:24:35" },
-  { id: 5, classroom: "103", operationType: "手动控制", content: "", ip: "192.168.10.41", clientType: "", time: "2026-03-03 09:24:35" },
-  { id: 6, classroom: "103", operationType: "手动控制", content: "", ip: "192.168.10.41", clientType: "", time: "2026-03-03 09:24:35" },
-  { id: 7, classroom: "103", operationType: "手动控制", content: "控制状态回报103教室.上课/下课.2", ip: "192.168.10.41", clientType: "", time: "2026-03-03 09:24:35" },
-  { id: 8, classroom: "102", operationType: "手动控制", content: "控制状态回报102教室.null:投影.0", ip: "192.168.10.204", clientType: "", time: "2026-03-03 09:24:35" },
-  { id: 9, classroom: "103", operationType: "手动控制", content: "", ip: "192.168.10.41", clientType: "", time: "2026-03-03 09:24:35" },
-  { id: 10, classroom: "103", operationType: "手动控制", content: "", ip: "192.168.10.41", clientType: "", time: "2026-03-03 09:24:35" },
-]
+import { Skeleton } from "@/components/ui/skeleton"
+import {
+  getOperationLogPage,
+  ACTION_TYPE_MAP,
+  type OperationLogDO,
+} from "@/lib/api/operation-log"
 
 export default function OperationLogsPage() {
-  const [operationType, setOperationType] = useState<string>("")
-  const [searchClassroom, setSearchClassroom] = useState("")
-  const [selectedRows, setSelectedRows] = useState<number[]>([])
+  const [actionType, setActionType] = useState<string>("")
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
-  
-  const totalRecords = 1667
+
+  const [logs, setLogs] = useState<OperationLogDO[]>([])
+  const [total, setTotal] = useState(0)
+  const [loading, setLoading] = useState(false)
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+
+  const fetchLogs = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await getOperationLogPage({
+        page: currentPage,
+        pageSize,
+        actionType: actionType ? Number(actionType) : undefined,
+      })
+      setLogs(res.records ?? [])
+      setTotal(res.total ?? 0)
+    } catch (err) {
+      console.error("获取操作日志失败", err)
+    } finally {
+      setLoading(false)
+    }
+  }, [currentPage, pageSize, actionType])
+
+  useEffect(() => {
+    fetchLogs()
+  }, [fetchLogs])
+
+  const handleSearch = () => {
+    setCurrentPage(1)
+  }
 
   const handleReset = () => {
-    setOperationType("")
-    setSearchClassroom("")
+    setActionType("")
+    setCurrentPage(1)
   }
 
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) setSelectedRows(logsData.map((l) => l.id))
-    else setSelectedRows([])
+  const getActionTypeLabel = (type: number) => ACTION_TYPE_MAP[type] ?? `未知(${type})`
+
+  const formatTime = (t: string | null | undefined) => {
+    if (!t) return "-"
+    return t.replace("T", " ").slice(0, 19)
   }
 
-  const handleSelectRow = (id: number, checked: boolean) => {
-    if (checked) setSelectedRows([...selectedRows, id])
-    else setSelectedRows(selectedRows.filter((rid) => rid !== id))
+  const getPageNumbers = () => {
+    const pages: (number | "...")[] = []
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i)
+    } else {
+      pages.push(1)
+      if (currentPage > 3) pages.push("...")
+      const start = Math.max(2, currentPage - 1)
+      const end = Math.min(totalPages - 1, currentPage + 1)
+      for (let i = start; i <= end; i++) pages.push(i)
+      if (currentPage < totalPages - 2) pages.push("...")
+      pages.push(totalPages)
+    }
+    return pages
   }
 
   return (
@@ -52,28 +82,20 @@ export default function OperationLogsPage() {
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground whitespace-nowrap">操作类型:</span>
-            <Select value={operationType} onValueChange={setOperationType}>
+            <Select value={actionType} onValueChange={setActionType}>
               <SelectTrigger className="w-48">
                 <SelectValue placeholder="请选择操作类型" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="manual">手动控制</SelectItem>
-                <SelectItem value="auto">自动控制</SelectItem>
-                <SelectItem value="schedule">定时任务</SelectItem>
-                <SelectItem value="system">系统操作</SelectItem>
+                {Object.entries(ACTION_TYPE_MAP).map(([val, label]) => (
+                  <SelectItem key={val} value={val}>
+                    {label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground whitespace-nowrap">教室:</span>
-            <Input
-              placeholder="请输入教室"
-              value={searchClassroom}
-              onChange={(e) => setSearchClassroom(e.target.value)}
-              className="w-48"
-            />
-          </div>
-          <Button>
+          <Button onClick={handleSearch}>
             <Search className="h-4 w-4 mr-1" />
             查询
           </Button>
@@ -90,30 +112,12 @@ export default function OperationLogsPage() {
               <Download className="h-4 w-4 mr-1" />
               导出
             </Button>
-            {selectedRows.length > 0 && (
-              <Button variant="outline" className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive">
-                <Trash2 className="h-4 w-4 mr-1" />
-                批量删除
-              </Button>
-            )}
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" onClick={fetchLogs}>
               <RefreshCw className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon">
-              <Wrench className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon">
-              <Settings className="h-4 w-4" />
-            </Button>
           </div>
-        </div>
-
-        {/* 选中提示 */}
-        <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/30 px-4 py-2 rounded">
-          <Info className="h-4 w-4" />
-          <span>{selectedRows.length > 0 ? `已选中 ${selectedRows.length} 条数据` : "未选中任何数据"}</span>
         </div>
 
         {/* 表格 */}
@@ -121,14 +125,6 @@ export default function OperationLogsPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border bg-muted/30">
-                <th className="p-3 text-center w-12">
-                  <input
-                    type="checkbox"
-                    checked={selectedRows.length === logsData.length && logsData.length > 0}
-                    onChange={(e) => handleSelectAll(e.target.checked)}
-                    className="h-4 w-4"
-                  />
-                </th>
                 <th className="p-3 text-center text-sm font-medium text-muted-foreground">
                   <div className="flex items-center justify-center gap-1">
                     教室
@@ -154,37 +150,83 @@ export default function OperationLogsPage() {
               </tr>
             </thead>
             <tbody>
-              {logsData.map((log) => (
-                <tr key={log.id} className="border-b border-border hover:bg-muted/20">
-                  <td className="p-3 text-center">
-                    <input
-                      type="checkbox"
-                      checked={selectedRows.includes(log.id)}
-                      onChange={(e) => handleSelectRow(log.id, e.target.checked)}
-                      className="h-4 w-4"
-                    />
+              {loading ? (
+                Array.from({ length: pageSize }).map((_, i) => (
+                  <tr key={i} className="border-b border-border">
+                    {Array.from({ length: 7 }).map((_, j) => (
+                      <td key={j} className="p-3">
+                        <Skeleton className="h-4 w-full" />
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              ) : logs.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="p-8 text-center text-sm text-muted-foreground">
+                    暂无数据
                   </td>
-                  <td className="p-3 text-center text-sm text-foreground">{log.classroom}</td>
-                  <td className="p-3 text-center text-sm text-foreground">{log.operationType}</td>
-                  <td className="p-3 text-center text-sm text-primary">{log.content}</td>
-                  <td className="p-3 text-center text-sm text-foreground">{log.ip}</td>
-                  <td className="p-3 text-center text-sm text-foreground">{log.clientType}</td>
-                  <td className="p-3 text-center text-sm text-foreground">{log.time}</td>
                 </tr>
-              ))}
+              ) : (
+                logs.map((log) => (
+                  <tr key={log.id} className="border-b border-border hover:bg-muted/20">
+                    <td className="p-3 text-center text-sm text-foreground">{log.roomName || "-"}</td>
+                    <td className="p-3 text-center text-sm text-foreground">{getActionTypeLabel(log.actionType)}</td>
+                    <td className="p-3 text-center text-sm text-primary">{log.content || "-"}</td>
+                    <td className="p-3 text-center text-sm text-foreground">{log.ip || "-"}</td>
+                    <td className="p-3 text-center text-sm text-foreground">{log.clientType || "-"}</td>
+                    <td className="p-3 text-center text-sm text-foreground">{formatTime(log.createTime)}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
 
         {/* 分页 */}
         <div className="flex items-center justify-end gap-4">
-          <span className="text-sm text-muted-foreground">共 {totalRecords} 条数据</span>
+          <span className="text-sm text-muted-foreground">共 {total} 条数据</span>
           <div className="flex items-center gap-1">
-            <Button variant="outline" size="sm" className="h-8 w-8 p-0 bg-primary text-primary-foreground">
-              1
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 w-8 p-0"
+              disabled={currentPage <= 1}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            {getPageNumbers().map((p, i) =>
+              p === "..." ? (
+                <span key={`dot-${i}`} className="px-1 text-muted-foreground">...</span>
+              ) : (
+                <Button
+                  key={p}
+                  variant={p === currentPage ? "default" : "outline"}
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() => setCurrentPage(p)}
+                >
+                  {p}
+                </Button>
+              )
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 w-8 p-0"
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            >
+              <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
-          <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+          <Select
+            value={String(pageSize)}
+            onValueChange={(v) => {
+              setPageSize(Number(v))
+              setCurrentPage(1)
+            }}
+          >
             <SelectTrigger className="w-24 h-8">
               <SelectValue />
             </SelectTrigger>

@@ -5,6 +5,7 @@ import "./globals.css"
 import { SidebarProvider } from "@/components/layout/sidebar-context"
 import { TabsProvider } from "@/components/layout/tabs-context"
 import { AuthLayoutSwitch } from "@/components/layout/auth-layout-switch"
+import { Toaster } from "@/components/ui/toaster"
 
 export const metadata: Metadata = {
   title: "智慧运维 - 教室管理系统",
@@ -42,6 +43,7 @@ export default function RootLayout({
             <AuthLayoutSwitch>{children}</AuthLayoutSwitch>
           </TabsProvider>
         </SidebarProvider>
+        <Toaster />
         <Analytics />
       </body>
     </html>

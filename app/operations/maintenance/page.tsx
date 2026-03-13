@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Download, Plus, Search, RefreshCw, Wrench, Settings, ChevronUp, ChevronDown, Info, Trash2 } from "lucide-react"
@@ -9,6 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
+import { getWorkOrderPage, addWorkOrder, getWorkOrderProgress, delWorkOrder, submitWorkOrderProgress, type WorkOrderPageVO } from "@/lib/api/work-order"
+import { getBuildingList, getFloorList, getRoomList } from "@/lib/api/building"
 
 // 故障类型配置
 const faultTypeConfig = {
@@ -26,76 +28,48 @@ const statusConfig = {
   "no-action": { label: "不需要处理", color: "bg-gray-500/10 text-gray-600 border-gray-500/30" },
 }
 
-// 模拟工单数据
-const tickets = [
-  {
-    id: "风扇问题",
-    location: "教一楼 一楼 109",
-    faultType: "equipment",
-    description: "风扇问题",
-    reporter: "admin",
-    reportTime: "2026-03-03 11:18:11",
-    status: "no-action",
-  },
-  {
-    id: "1555",
-    location: "教二楼 一楼 102",
-    faultType: "equipment",
-    description: "1255",
-    reporter: "admin",
-    reportTime: "2026-02-09 10:07:41",
-    status: "resolved",
-  },
-  {
-    id: "二楼224教室故障",
-    location: "教二楼 一楼 102",
-    faultType: "equipment",
-    description: "电子屏设备出现了故障",
-    reporter: "admin",
-    reportTime: "2026-02-03 10:36:18",
-    status: "delayed",
-  },
-  {
-    id: "11",
-    location: "教二楼 一楼 102",
-    faultType: "circuit",
-    description: "11",
-    reporter: "admin",
-    reportTime: "2026-02-03 10:33:46",
-    status: "pending",
-  },
-  {
-    id: "二楼214教室故障",
-    location: "教二楼 一楼 102",
-    faultType: "other",
-    description: "教室前部照明灯损坏",
-    reporter: "admin",
-    reportTime: "2026-02-03 10:07:21",
-    status: "resolved",
-  },
-]
+// 状态/故障类型字符串 -> 前端 key 映射（用于 Badge 样式）
+const statusKeyMap: Record<string, string> = {
+  未处理: "pending",
+  延后处理: "delayed",
+  已解决: "resolved",
+  不需要处理: "no-action",
+}
+const faultTypeKeyMap: Record<string, string> = {
+  设备故障: "equipment",
+  网络故障: "network",
+  电路故障: "circuit",
+  其他故障: "other",
+}
+// 前端 key -> API 请求参数
+const statusToApi: Record<string, number> = {
+  pending: 1,
+  delayed: 2,
+  resolved: 3,
+  "no-action": 4,
+}
+// 提交处理 status: 0-未处理；1-延后处理；2-已解决；3-不需要处理
+const acceptActionToStatus: Record<string, number> = {
+  accept: 2,
+  delay: 1,
+  "no-action": 3,
+}
+const faultTypeToApi: Record<string, number> = {
+  equipment: 1,
+  network: 2,
+  circuit: 3,
+  other: 4,
+}
 
-// 楼栋楼层教室联动数据
-const buildingData = {
-  "教一楼": {
-    floors: {
-      "一楼": ["101", "102", "103", "109"],
-      "二楼": ["201", "202", "203"],
-      "三楼": ["301", "302", "303"],
-    }
-  },
-  "教二楼": {
-    floors: {
-      "一楼": ["101", "102", "103"],
-      "二楼": ["201", "202", "203", "214", "224"],
-    }
-  },
-  "教三楼": {
-    floors: {
-      "一楼": ["101", "102"],
-      "二楼": ["201", "202"],
-    }
-  },
+type TicketDisplay = {
+  id: string
+  title: string
+  location: string
+  faultType: string
+  description: string
+  reporter: string
+  reportTime: string
+  status: string
 }
 
 export default function MaintenancePage() {
@@ -106,18 +80,60 @@ export default function MaintenancePage() {
   const [selectedFaultType, setSelectedFaultType] = useState<string>("")
   const [selectedRows, setSelectedRows] = useState<string[]>([])
   const [pageSize, setPageSize] = useState(10)
+  const [page, setPage] = useState(1)
+  const [tickets, setTickets] = useState<TicketDisplay[]>([])
+  const [total, setTotal] = useState(0)
+  const [loading, setLoading] = useState(false)
 
   // 新增报修对话框状态
   const [dialogOpen, setDialogOpen] = useState(false)
   
   // 详情对话框状态
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
-  const [selectedTicket, setSelectedTicket] = useState<typeof tickets[0] | null>(null)
+  const [selectedTicket, setSelectedTicket] = useState<TicketDisplay | null>(null)
+  const [progressList, setProgressList] = useState<{ createTime: string; title: string; content: string }[]>([])
+  const [progressLoading, setProgressLoading] = useState(false)
 
   // 接单对话框状态
   const [acceptDialogOpen, setAcceptDialogOpen] = useState(false)
+
+  const fetchTickets = (pageOverride?: number) => {
+    setLoading(true)
+    const p = pageOverride ?? page
+    getWorkOrderPage({
+      page: p,
+      pageSize,
+      status: selectedStatus ? statusToApi[selectedStatus] : undefined,
+      faultType: selectedFaultType ? faultTypeToApi[selectedFaultType] : undefined,
+    })
+      .then((res) => {
+        const list: TicketDisplay[] = (res?.records ?? []).map((r: WorkOrderPageVO) => ({
+          id: r.id,
+          title: r.title,
+          location: r.address,
+          faultType: faultTypeKeyMap[r.faultType] ?? r.faultType,
+          description: r.description,
+          reporter: r.createUser,
+          reportTime: r.createTime?.slice(0, 19) ?? "",
+          status: statusKeyMap[r.status] ?? r.status,
+        }))
+        setTickets(list)
+        setTotal(res?.total ?? 0)
+      })
+      .catch((err) => {
+        console.error("加载工单失败:", err)
+        setTickets([])
+        setTotal(0)
+      })
+      .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    fetchTickets()
+  }, [page, pageSize, selectedStatus, selectedFaultType])
   const [acceptAction, setAcceptAction] = useState<"accept" | "delay" | "no-action">("accept")
   const [acceptNote, setAcceptNote] = useState("")
+  const [submitLoading, setSubmitLoading] = useState(false)
 
   // 延后处理对话框状态
   const [processDialogOpen, setProcessDialogOpen] = useState(false)
@@ -128,17 +144,70 @@ export default function MaintenancePage() {
   const [formTitle, setFormTitle] = useState("")
   const [formFaultType, setFormFaultType] = useState<string>("")
   const [formDescription, setFormDescription] = useState("")
+  const [buildingList, setBuildingList] = useState<{ id: string; name: string }[]>([])
+  const [floorList, setFloorList] = useState<{ id: string; name: string }[]>([])
+  const [roomList, setRoomList] = useState<{ id: string; name: string }[]>([])
+  const [formLoading, setFormLoading] = useState(false)
+  const [formSubmitting, setFormSubmitting] = useState(false)
 
-  // 获取可选楼层列表
-  const getAvailableFloors = () => {
-    if (!formBuilding) return []
-    return Object.keys(buildingData[formBuilding as keyof typeof buildingData]?.floors || {})
+  // 对话框打开时加载楼栋列表
+  const handleDialogOpenChange = (open: boolean) => {
+    setDialogOpen(open)
+    if (open) {
+      setFormLoading(true)
+      getBuildingList()
+        .then((list) => setBuildingList(list ?? []))
+        .catch((err) => {
+          console.error("加载楼栋失败:", err)
+          setBuildingList([])
+        })
+        .finally(() => setFormLoading(false))
+      setFormBuilding("")
+      setFormFloor("")
+      setFormClassroom("")
+      setFloorList([])
+      setRoomList([])
+    } else {
+      resetForm()
+    }
   }
 
-  // 获取可选教室列表
-  const getAvailableClassrooms = () => {
-    if (!formBuilding || !formFloor) return []
-    return buildingData[formBuilding as keyof typeof buildingData]?.floors[formFloor as keyof typeof buildingData["教一楼"]["floors"]] || []
+  // 楼栋变更：加载楼层
+  const handleBuildingChange = (buildingId: string) => {
+    setFormBuilding(buildingId)
+    setFormFloor("")
+    setFormClassroom("")
+    setRoomList([])
+    if (!buildingId) {
+      setFloorList([])
+      return
+    }
+    setFormLoading(true)
+    getFloorList(buildingId)
+      .then((list) => setFloorList(list ?? []))
+      .catch((err) => {
+        console.error("加载楼层失败:", err)
+        setFloorList([])
+      })
+      .finally(() => setFormLoading(false))
+  }
+
+  // 楼层变更：加载教室
+  const handleFloorChange = (floorId: string) => {
+    setFormFloor(floorId)
+    setFormClassroom("")
+    if (!floorId || !formBuilding) {
+      setRoomList([])
+      return
+    }
+    setFormLoading(true)
+    getRoomList(formBuilding, floorId)
+      .then((list) => setRoomList(list ?? []))
+      .catch((err) => {
+        console.error("加载教室失败:", err)
+        setRoomList([])
+      })
+      .finally(() => setFormLoading(false))
   }
 
   // 重置表单
@@ -151,27 +220,30 @@ export default function MaintenancePage() {
     setFormDescription("")
   }
 
-  // 楼栋变更时清空楼层和教室
-  const handleBuildingChange = (value: string) => {
-    setFormBuilding(value)
-    setFormFloor("")
-    setFormClassroom("")
-  }
-
-  // 楼层变更时清空教室
-  const handleFloorChange = (value: string) => {
-    setFormFloor(value)
-    setFormClassroom("")
-  }
-
   // 打开详情对话框
-  const handleOpenDetail = (ticket: typeof tickets[0]) => {
+  const handleOpenDetail = (ticket: TicketDisplay) => {
     setSelectedTicket(ticket)
     setDetailDialogOpen(true)
   }
 
+  // 详情/接单/延后处理对话框打开时加载处理进度
+  useEffect(() => {
+    if ((detailDialogOpen || acceptDialogOpen || processDialogOpen) && selectedTicket?.id) {
+      setProgressLoading(true)
+      getWorkOrderProgress(selectedTicket.id)
+        .then((list) => setProgressList(list ?? []))
+        .catch((err) => {
+          console.error("加载处理进度失败:", err)
+          setProgressList([])
+        })
+        .finally(() => setProgressLoading(false))
+    } else {
+      setProgressList([])
+    }
+  }, [detailDialogOpen, acceptDialogOpen, processDialogOpen, selectedTicket?.id])
+
   // 打开接单对话框
-  const handleOpenAccept = (ticket: typeof tickets[0]) => {
+  const handleOpenAccept = (ticket: TicketDisplay) => {
     setSelectedTicket(ticket)
     setAcceptAction("accept")
     setAcceptNote("")
@@ -179,7 +251,7 @@ export default function MaintenancePage() {
   }
 
   // 打开延后处理对话框
-  const handleOpenProcess = (ticket: typeof tickets[0]) => {
+  const handleOpenProcess = (ticket: TicketDisplay) => {
     setSelectedTicket(ticket)
     setProcessNote("")
     setProcessDialogOpen(true)
@@ -191,6 +263,7 @@ export default function MaintenancePage() {
     setSelectedClassroom("")
     setSelectedStatus("")
     setSelectedFaultType("")
+    setPage(1)
   }
 
   // 根据状态返回可用的操作
@@ -291,7 +364,12 @@ export default function MaintenancePage() {
               </SelectContent>
             </Select>
           </div>
-          <Button>
+          <Button
+            onClick={() => {
+              setPage(1)
+              fetchTickets(1)
+            }}
+          >
             <Search className="h-4 w-4 mr-1" />
             查询
           </Button>
@@ -304,7 +382,7 @@ export default function MaintenancePage() {
         {/* 工具栏 */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Button onClick={() => setDialogOpen(true)}>
+            <Button onClick={() => handleDialogOpenChange(true)}>
               <Plus className="h-4 w-4 mr-1" />
               新增
             </Button>
@@ -378,9 +456,22 @@ export default function MaintenancePage() {
               </tr>
             </thead>
             <tbody>
-              {tickets.map((ticket, index) => {
-                const faultType = faultTypeConfig[ticket.faultType as keyof typeof faultTypeConfig]
-                const status = statusConfig[ticket.status as keyof typeof statusConfig]
+              {loading ? (
+                <tr>
+                  <td colSpan={9} className="p-8 text-center text-sm text-muted-foreground">
+                    加载中...
+                  </td>
+                </tr>
+              ) : (
+                tickets.map((ticket, index) => {
+                const faultType = faultTypeConfig[ticket.faultType as keyof typeof faultTypeConfig] ?? {
+                  label: ticket.faultType,
+                  color: "bg-muted text-muted-foreground border-border",
+                }
+                const status = statusConfig[ticket.status as keyof typeof statusConfig] ?? {
+                  label: ticket.status,
+                  color: "bg-muted text-muted-foreground border-border",
+                }
                 const actions = getActions(ticket.status)
 
                 return (
@@ -393,7 +484,7 @@ export default function MaintenancePage() {
                         className="h-4 w-4"
                       />
                     </td>
-                    <td className="p-3 text-center text-sm text-primary">{ticket.id}</td>
+                    <td className="p-3 text-center text-sm text-primary">{ticket.title || ticket.id}</td>
                     <td className="p-3 text-center text-sm text-foreground">{ticket.location}</td>
                     <td className="p-3 text-center">
                       <Badge variant="outline" className={faultType.color}>
@@ -421,6 +512,12 @@ export default function MaintenancePage() {
                                 handleOpenAccept(ticket)
                               } else if (action === "处理") {
                                 handleOpenProcess(ticket)
+                              } else if (action === "撤销") {
+                                if (confirm(`确定要撤销工单「${ticket.title}」吗？`)) {
+                                  delWorkOrder(ticket.id)
+                                    .then(() => fetchTickets(1))
+                                    .catch((err) => console.error("撤销失败:", err))
+                                }
                               }
                             }}
                           >
@@ -431,20 +528,45 @@ export default function MaintenancePage() {
                     </td>
                   </tr>
                 )
-              })}
+              })
+              )}
             </tbody>
           </table>
         </div>
 
         {/* 分页 */}
         <div className="flex items-center justify-end gap-4">
-          <span className="text-sm text-muted-foreground">共 {tickets.length} 条数据</span>
+          <span className="text-sm text-muted-foreground">共 {total} 条数据</span>
           <div className="flex items-center gap-1">
-            <Button variant="outline" size="sm" className="h-8 w-8 p-0 bg-primary text-primary-foreground">
-              1
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 px-2"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              上一页
+            </Button>
+            <span className="text-sm text-muted-foreground px-2">
+              第 {page} / {Math.ceil(total / pageSize) || 1} 页
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 px-2"
+              disabled={page >= Math.ceil(total / pageSize)}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              下一页
             </Button>
           </div>
-          <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+          <Select
+            value={String(pageSize)}
+            onValueChange={(v) => {
+              setPageSize(Number(v))
+              setPage(1)
+            }}
+          >
             <SelectTrigger className="w-24 h-8">
               <SelectValue />
             </SelectTrigger>
@@ -459,91 +581,95 @@ export default function MaintenancePage() {
 
       {/* 延后处理对话框 */}
       <Dialog open={processDialogOpen} onOpenChange={setProcessDialogOpen}>
-        <DialogContent className="sm:max-w-[550px]">
+<DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>工单详情与处理</DialogTitle>
           </DialogHeader>
           
           {selectedTicket && (
-            <div className="space-y-6 py-4">
+            <div className="space-y-8 py-6">
               {/* 报修信息 */}
               <div>
                 <h4 className="font-medium text-foreground mb-4">报修信息</h4>
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="flex items-center">
-                      <span className="text-muted-foreground w-16">工单号</span>
-                      <span className="text-foreground">{selectedTicket.id}</span>
-                    </div>
-                    <div className="flex items-center">
-                      <span className="text-muted-foreground w-16">当前状态</span>
-                      <Badge 
-                        variant="outline" 
-                        className={statusConfig[selectedTicket.status as keyof typeof statusConfig].color}
-                      >
-                        {statusConfig[selectedTicket.status as keyof typeof statusConfig].label}
-                      </Badge>
-                    </div>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-[100px_1fr] gap-x-6 gap-y-1 items-center">
+                    <span className="text-muted-foreground text-sm">工单号</span>
+                    <span className="text-foreground text-sm break-words">{selectedTicket.id}</span>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="flex items-center">
-                      <span className="text-muted-foreground w-16">报修位置</span>
-                      <span className="text-foreground">{selectedTicket.location}</span>
-                    </div>
-                    <div className="flex items-center">
-                      <span className="text-muted-foreground w-16">故障类型</span>
-                      <span className="text-foreground">
-                        {faultTypeConfig[selectedTicket.faultType as keyof typeof faultTypeConfig].label}
-                      </span>
-                    </div>
+                  <div className="grid grid-cols-[100px_1fr] gap-x-6 gap-y-1 items-center">
+                    <span className="text-muted-foreground text-sm">当前状态</span>
+                    <Badge
+                      variant="outline"
+                      className={statusConfig[selectedTicket.status as keyof typeof statusConfig].color}
+                    >
+                      {statusConfig[selectedTicket.status as keyof typeof statusConfig].label}
+                    </Badge>
                   </div>
-                  <div className="flex items-center">
-                    <span className="text-muted-foreground w-16">报修人</span>
-                    <span className="text-foreground">{selectedTicket.reporter}</span>
+                  <div className="grid grid-cols-[100px_1fr] gap-x-6 gap-y-1 items-center">
+                    <span className="text-muted-foreground text-sm">报修位置</span>
+                    <span className="text-foreground text-sm break-words">{selectedTicket.location}</span>
                   </div>
-                  <div className="flex items-center">
-                    <span className="text-muted-foreground w-16">报修时间</span>
-                    <span className="text-foreground">{selectedTicket.reportTime}</span>
+                  <div className="grid grid-cols-[100px_1fr] gap-x-6 gap-y-1 items-center">
+                    <span className="text-muted-foreground text-sm">故障类型</span>
+                    <span className="text-foreground text-sm">
+                      {faultTypeConfig[selectedTicket.faultType as keyof typeof faultTypeConfig]?.label ?? selectedTicket.faultType}
+                    </span>
                   </div>
-                  <div className="flex items-center">
-                    <span className="text-muted-foreground w-16">故障描述</span>
-                    <span className="text-foreground">{selectedTicket.description}</span>
+                  <div className="grid grid-cols-[100px_1fr] gap-x-6 gap-y-1 items-center">
+                    <span className="text-muted-foreground text-sm">报修人</span>
+                    <span className="text-foreground text-sm">{selectedTicket.reporter}</span>
+                  </div>
+                  <div className="grid grid-cols-[100px_1fr] gap-x-6 gap-y-1 items-center">
+                    <span className="text-muted-foreground text-sm">报修时间</span>
+                    <span className="text-foreground text-sm">{selectedTicket.reportTime}</span>
+                  </div>
+                  <div className="grid grid-cols-[100px_1fr] gap-x-6 gap-y-1 items-start">
+                    <span className="text-muted-foreground text-sm pt-0.5">故障描述</span>
+                    <span className="text-foreground text-sm break-words leading-relaxed">{selectedTicket.description || "-"}</span>
                   </div>
                 </div>
               </div>
 
-              {/* 处理进度 - 延后处理有两条记录 */}
+              {/* 处理进度 */}
               <div>
                 <h4 className="font-medium text-foreground mb-4">处理进度</h4>
-                <div className="relative pl-6">
-                  <div className="absolute left-[7px] top-2 bottom-2 w-0.5 bg-border"></div>
-                  {/* 第一条记录 - 用户报修 */}
-                  <div className="relative pb-4">
-                    <div className="absolute left-[-20px] top-1 h-3.5 w-3.5 rounded-full bg-primary border-2 border-background"></div>
-                    <div className="ml-2">
-                      <p className="text-sm text-primary font-medium">{selectedTicket.reportTime}</p>
-                      <p className="text-sm text-foreground mt-1">用户报修</p>
-                      <p className="text-sm text-muted-foreground">{selectedTicket.reporter}提交了故障报修</p>
-                    </div>
+                {progressLoading ? (
+                  <p className="text-sm text-muted-foreground py-4">加载中...</p>
+                ) : progressList.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-4">暂无处理记录</p>
+                ) : (
+                  <div className="relative pl-6 space-y-6">
+                    <div className="absolute left-[7px] top-2 bottom-2 w-0.5 bg-border"></div>
+                    {progressList.map((item, idx) => (
+                      <div key={idx} className="relative pb-2">
+                        <div
+                          className={`absolute left-[-20px] top-1 h-3.5 w-3.5 rounded-full border-2 border-background ${
+                            idx === 0 ? "bg-primary" : "bg-orange-500"
+                          }`}
+                        />
+                        <div className="ml-4 space-y-1">
+                          <p
+                            className={`text-sm font-medium ${
+                              idx === 0 ? "text-primary" : "text-orange-500"
+                            }`}
+                          >
+                            {item.createTime?.slice(0, 19)}
+                          </p>
+                          <p className="text-sm text-foreground">{item.title}</p>
+                          <p className="text-sm text-muted-foreground">{item.content}</p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  {/* 第二条记录 - 延后处理 */}
-                  <div className="relative pb-4">
-                    <div className="absolute left-[-20px] top-1 h-3.5 w-3.5 rounded-full bg-orange-500 border-2 border-background"></div>
-                    <div className="ml-2">
-                      <p className="text-sm text-orange-500 font-medium">2026-03-03 11:16:54</p>
-                      <p className="text-sm text-foreground mt-1">待处理</p>
-                      <p className="text-sm text-muted-foreground">{selectedTicket.reporter}提交工单[延后处理]:48484</p>
-                    </div>
-                  </div>
-                </div>
+                )}
               </div>
 
               {/* 处理反馈 - 只有处理完成选项 */}
               <div>
                 <h4 className="font-medium text-foreground mb-4">处理反馈</h4>
                 <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground w-16">处理动作</span>
+                  <div className="grid grid-cols-[100px_1fr] gap-x-6 items-center">
+                    <span className="text-muted-foreground text-sm">处理动作</span>
                     <div className="flex items-center gap-4">
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input
@@ -557,11 +683,11 @@ export default function MaintenancePage() {
                       </label>
                     </div>
                   </div>
-                  <div className="flex items-start gap-2">
-                    <span className="text-muted-foreground w-16 pt-2">处理备注</span>
+                  <div className="grid grid-cols-[100px_1fr] gap-x-6 items-start">
+                    <span className="text-muted-foreground text-sm pt-2">处理备注</span>
                     <Textarea
                       placeholder="填写处理情况说明..."
-                      className="flex-1 min-h-[100px]"
+                      className="min-h-[100px]"
                       value={processNote}
                       onChange={(e) => setProcessNote(e.target.value)}
                     />
@@ -576,11 +702,27 @@ export default function MaintenancePage() {
             <Button variant="outline" onClick={() => setProcessDialogOpen(false)}>
               关闭
             </Button>
-            <Button onClick={() => {
-              // 提交处理逻辑
-              setProcessDialogOpen(false)
-            }}>
-              提交处理
+            <Button
+              disabled={submitLoading || !selectedTicket}
+              onClick={async () => {
+                if (!selectedTicket) return
+                setSubmitLoading(true)
+                try {
+                  await submitWorkOrderProgress({
+                    workId: selectedTicket.id,
+                    status: 2,
+                    handleDetail: processNote || undefined,
+                  })
+                  setProcessDialogOpen(false)
+                  fetchTickets(1)
+                } catch (err) {
+                  console.error("提交处理失败:", err)
+                } finally {
+                  setSubmitLoading(false)
+                }
+              }}
+            >
+              {submitLoading ? "提交中..." : "提交处理"}
             </Button>
           </div>
         </DialogContent>
@@ -588,55 +730,51 @@ export default function MaintenancePage() {
 
       {/* 接单对话框 */}
       <Dialog open={acceptDialogOpen} onOpenChange={setAcceptDialogOpen}>
-        <DialogContent className="sm:max-w-[550px]">
+        <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>工单详情与处理</DialogTitle>
           </DialogHeader>
           
           {selectedTicket && (
-            <div className="space-y-6 py-4">
+            <div className="space-y-8 py-6">
               {/* 报修信息 */}
               <div>
                 <h4 className="font-medium text-foreground mb-4">报修信息</h4>
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="flex items-center">
-                      <span className="text-muted-foreground w-16">工单号</span>
-                      <span className="text-foreground">{selectedTicket.id}</span>
-                    </div>
-                    <div className="flex items-center">
-                      <span className="text-muted-foreground w-16">当前状态</span>
-                      <Badge 
-                        variant="outline" 
-                        className={statusConfig[selectedTicket.status as keyof typeof statusConfig].color}
-                      >
-                        {statusConfig[selectedTicket.status as keyof typeof statusConfig].label}
-                      </Badge>
-                    </div>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-[100px_1fr] gap-x-6 gap-y-1 items-center">
+                    <span className="text-muted-foreground text-sm">工单号</span>
+                    <span className="text-foreground text-sm break-words">{selectedTicket.id}</span>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="flex items-center">
-                      <span className="text-muted-foreground w-16">报修位置</span>
-                      <span className="text-foreground">{selectedTicket.location}</span>
-                    </div>
-                    <div className="flex items-center">
-                      <span className="text-muted-foreground w-16">故障类型</span>
-                      <span className="text-foreground">
-                        {faultTypeConfig[selectedTicket.faultType as keyof typeof faultTypeConfig].label}
-                      </span>
-                    </div>
+                  <div className="grid grid-cols-[100px_1fr] gap-x-6 gap-y-1 items-center">
+                    <span className="text-muted-foreground text-sm">当前状态</span>
+                    <Badge 
+                      variant="outline" 
+                      className={statusConfig[selectedTicket.status as keyof typeof statusConfig].color}
+                    >
+                      {statusConfig[selectedTicket.status as keyof typeof statusConfig].label}
+                    </Badge>
                   </div>
-                  <div className="flex items-center">
-                    <span className="text-muted-foreground w-16">报修人</span>
-                    <span className="text-foreground">{selectedTicket.reporter}</span>
+                  <div className="grid grid-cols-[100px_1fr] gap-x-6 gap-y-1 items-center">
+                    <span className="text-muted-foreground text-sm">报修位置</span>
+                    <span className="text-foreground text-sm break-words">{selectedTicket.location}</span>
                   </div>
-                  <div className="flex items-center">
-                    <span className="text-muted-foreground w-16">报修时间</span>
-                    <span className="text-foreground">{selectedTicket.reportTime}</span>
+                  <div className="grid grid-cols-[100px_1fr] gap-x-6 gap-y-1 items-center">
+                    <span className="text-muted-foreground text-sm">故障类型</span>
+                    <span className="text-foreground text-sm">
+                      {faultTypeConfig[selectedTicket.faultType as keyof typeof faultTypeConfig]?.label ?? selectedTicket.faultType}
+                    </span>
                   </div>
-                  <div className="flex items-center">
-                    <span className="text-muted-foreground w-16">故障描述</span>
-                    <span className="text-foreground">{selectedTicket.description}</span>
+                  <div className="grid grid-cols-[100px_1fr] gap-x-6 gap-y-1 items-center">
+                    <span className="text-muted-foreground text-sm">报修人</span>
+                    <span className="text-foreground text-sm">{selectedTicket.reporter}</span>
+                  </div>
+                  <div className="grid grid-cols-[100px_1fr] gap-x-6 gap-y-1 items-center">
+                    <span className="text-muted-foreground text-sm">报修时间</span>
+                    <span className="text-foreground text-sm">{selectedTicket.reportTime}</span>
+                  </div>
+                  <div className="grid grid-cols-[100px_1fr] gap-x-6 gap-y-1 items-start">
+                    <span className="text-muted-foreground text-sm pt-0.5">故障描述</span>
+                    <span className="text-foreground text-sm break-words leading-relaxed">{selectedTicket.description || "-"}</span>
                   </div>
                 </div>
               </div>
@@ -644,25 +782,43 @@ export default function MaintenancePage() {
               {/* 处理进度 */}
               <div>
                 <h4 className="font-medium text-foreground mb-4">处理进度</h4>
-                <div className="relative pl-6">
-                  <div className="absolute left-[7px] top-2 bottom-2 w-0.5 bg-border"></div>
-                  <div className="relative pb-4">
-                    <div className="absolute left-[-20px] top-1 h-3.5 w-3.5 rounded-full bg-primary border-2 border-background"></div>
-                    <div className="ml-2">
-                      <p className="text-sm text-primary font-medium">{selectedTicket.reportTime}</p>
-                      <p className="text-sm text-foreground mt-1">用户报修</p>
-                      <p className="text-sm text-muted-foreground">{selectedTicket.reporter}提交了故障报修</p>
-                    </div>
+                {progressLoading ? (
+                  <p className="text-sm text-muted-foreground py-4">加载中...</p>
+                ) : progressList.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-4">暂无处理记录</p>
+                ) : (
+                  <div className="relative pl-6 space-y-6">
+                    <div className="absolute left-[7px] top-2 bottom-2 w-0.5 bg-border"></div>
+                    {progressList.map((item, idx) => (
+                      <div key={idx} className="relative pb-2">
+                        <div
+                          className={`absolute left-[-20px] top-1 h-3.5 w-3.5 rounded-full border-2 border-background ${
+                            idx === 0 ? "bg-primary" : "bg-orange-500"
+                          }`}
+                        />
+                        <div className="ml-4 space-y-1">
+                          <p
+                            className={`text-sm font-medium ${
+                              idx === 0 ? "text-primary" : "text-orange-500"
+                            }`}
+                          >
+                            {item.createTime?.slice(0, 19)}
+                          </p>
+                          <p className="text-sm text-foreground">{item.title}</p>
+                          <p className="text-sm text-muted-foreground">{item.content}</p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                </div>
+                )}
               </div>
 
               {/* 处理反馈 */}
               <div>
                 <h4 className="font-medium text-foreground mb-4">处理反馈</h4>
                 <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground w-16">处理动作</span>
+                  <div className="grid grid-cols-[100px_1fr] gap-x-6 items-center">
+                    <span className="text-muted-foreground text-sm">处理动作</span>
                     <div className="flex items-center gap-4">
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input
@@ -696,11 +852,11 @@ export default function MaintenancePage() {
                       </label>
                     </div>
                   </div>
-                  <div className="flex items-start gap-2">
-                    <span className="text-muted-foreground w-16 pt-2">处理备注</span>
+                  <div className="grid grid-cols-[100px_1fr] gap-x-6 items-start">
+                    <span className="text-muted-foreground text-sm pt-2">处理备注</span>
                     <Textarea
                       placeholder="填写处理情况说明..."
-                      className="flex-1 min-h-[100px]"
+                      className="min-h-[100px]"
                       value={acceptNote}
                       onChange={(e) => setAcceptNote(e.target.value)}
                     />
@@ -715,11 +871,27 @@ export default function MaintenancePage() {
             <Button variant="outline" onClick={() => setAcceptDialogOpen(false)}>
               关闭
             </Button>
-            <Button onClick={() => {
-              // 提交处理逻辑
-              setAcceptDialogOpen(false)
-            }}>
-              提交处理
+            <Button
+              disabled={submitLoading || !selectedTicket}
+              onClick={async () => {
+                if (!selectedTicket) return
+                setSubmitLoading(true)
+                try {
+                  await submitWorkOrderProgress({
+                    workId: selectedTicket.id,
+                    status: acceptActionToStatus[acceptAction] ?? 2,
+                    handleDetail: acceptNote || undefined,
+                  })
+                  setAcceptDialogOpen(false)
+                  fetchTickets(1)
+                } catch (err) {
+                  console.error("提交处理失败:", err)
+                } finally {
+                  setSubmitLoading(false)
+                }
+              }}
+            >
+              {submitLoading ? "提交中..." : "提交处理"}
             </Button>
           </div>
         </DialogContent>
@@ -727,96 +899,92 @@ export default function MaintenancePage() {
 
       {/* 详情对话框 - 未处理状态 */}
       <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
-        <DialogContent className="sm:max-w-[550px]">
+        <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>工单详情与处理</DialogTitle>
           </DialogHeader>
           
           {selectedTicket && (
-            <div className="space-y-6 py-4">
+            <div className="space-y-8 py-6">
               {/* 报修信息 */}
               <div>
                 <h4 className="font-medium text-foreground mb-4">报修信息</h4>
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="flex items-center">
-                      <span className="text-muted-foreground w-16">工单号</span>
-                      <span className="text-foreground">{selectedTicket.id}</span>
-                    </div>
-                    <div className="flex items-center">
-                      <span className="text-muted-foreground w-16">当前状态</span>
-                      <Badge 
-                        variant="outline" 
-                        className={statusConfig[selectedTicket.status as keyof typeof statusConfig].color}
-                      >
-                        {statusConfig[selectedTicket.status as keyof typeof statusConfig].label}
-                      </Badge>
-                    </div>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-[100px_1fr] gap-x-6 gap-y-1 items-center">
+                    <span className="text-muted-foreground text-sm">工单号</span>
+                    <span className="text-foreground text-sm break-words">{selectedTicket.id}</span>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="flex items-center">
-                      <span className="text-muted-foreground w-16">报修位置</span>
-                      <span className="text-foreground">{selectedTicket.location}</span>
-                    </div>
-                    <div className="flex items-center">
-                      <span className="text-muted-foreground w-16">故障类型</span>
-                      <span className="text-foreground">
-                        {faultTypeConfig[selectedTicket.faultType as keyof typeof faultTypeConfig].label}
-                      </span>
-                    </div>
+                  <div className="grid grid-cols-[100px_1fr] gap-x-6 gap-y-1 items-center">
+                    <span className="text-muted-foreground text-sm">当前状态</span>
+                    <Badge 
+                      variant="outline" 
+                      className={statusConfig[selectedTicket.status as keyof typeof statusConfig].color}
+                    >
+                      {statusConfig[selectedTicket.status as keyof typeof statusConfig].label}
+                    </Badge>
                   </div>
-                  <div className="flex items-center">
-                    <span className="text-muted-foreground w-16">报修人</span>
-                    <span className="text-foreground">{selectedTicket.reporter}</span>
+                  <div className="grid grid-cols-[100px_1fr] gap-x-6 gap-y-1 items-center">
+                    <span className="text-muted-foreground text-sm">报修位置</span>
+                    <span className="text-foreground text-sm break-words">{selectedTicket.location}</span>
                   </div>
-                  <div className="flex items-center">
-                    <span className="text-muted-foreground w-16">报修时间</span>
-                    <span className="text-foreground">{selectedTicket.reportTime}</span>
+                  <div className="grid grid-cols-[100px_1fr] gap-x-6 gap-y-1 items-center">
+                    <span className="text-muted-foreground text-sm">故障类型</span>
+                    <span className="text-foreground text-sm">
+                      {faultTypeConfig[selectedTicket.faultType as keyof typeof faultTypeConfig]?.label ?? selectedTicket.faultType}
+                    </span>
                   </div>
-                  <div className="flex items-center">
-                    <span className="text-muted-foreground w-16">故障描述</span>
-                    <span className="text-foreground">{selectedTicket.description}</span>
+                  <div className="grid grid-cols-[100px_1fr] gap-x-6 gap-y-1 items-center">
+                    <span className="text-muted-foreground text-sm">报修人</span>
+                    <span className="text-foreground text-sm">{selectedTicket.reporter}</span>
+                  </div>
+                  <div className="grid grid-cols-[100px_1fr] gap-x-6 gap-y-1 items-center">
+                    <span className="text-muted-foreground text-sm">报修时间</span>
+                    <span className="text-foreground text-sm">{selectedTicket.reportTime}</span>
+                  </div>
+                  <div className="grid grid-cols-[100px_1fr] gap-x-6 gap-y-1 items-start">
+                    <span className="text-muted-foreground text-sm pt-0.5">故障描述</span>
+                    <span className="text-foreground text-sm break-words leading-relaxed">{selectedTicket.description || "-"}</span>
                   </div>
                 </div>
               </div>
 
-{/* 处理进度 */}
+              {/* 处理进度 */}
               <div>
                 <h4 className="font-medium text-foreground mb-4">处理进度</h4>
-                <div className="relative pl-6">
-                  {/* 时间线 */}
-                  <div className="absolute left-[7px] top-2 bottom-2 w-0.5 bg-border"></div>
-                  
-                  {/* 报修记录 */}
-                  <div className="relative pb-4">
-                    <div className="absolute left-[-20px] top-1 h-3.5 w-3.5 rounded-full bg-primary border-2 border-background"></div>
-                    <div className="ml-2">
-                      <p className="text-sm text-primary font-medium">{selectedTicket.reportTime}</p>
-                      <p className="text-sm text-foreground mt-1">用户报修</p>
-                      <p className="text-sm text-muted-foreground">{selectedTicket.reporter}提交了故障报修</p>
-                    </div>
-                  </div>
-
-                  {/* 已解决或不需要处理状态 - 显示处理完成记录 */}
-                  {(selectedTicket.status === "resolved" || selectedTicket.status === "no-action") && (
-                    <div className="relative pb-4">
-                      <div className="absolute left-[-20px] top-1 h-3.5 w-3.5 rounded-full bg-orange-500 border-2 border-background"></div>
-                      <div className="ml-2">
-                        <p className="text-sm text-orange-500 font-medium">2026-03-03 11:16:13</p>
-                        <p className="text-sm text-foreground mt-1">处理完成</p>
-                        <p className="text-sm text-muted-foreground">
-                          {selectedTicket.reporter}提交工单：
-                          {selectedTicket.status === "resolved" ? "已解决123456" : "不需要处理"}
-                        </p>
+                {progressLoading ? (
+                  <p className="text-sm text-muted-foreground py-4">加载中...</p>
+                ) : progressList.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-4">暂无处理记录</p>
+                ) : (
+                  <div className="relative pl-6 space-y-6">
+                    <div className="absolute left-[7px] top-2 bottom-2 w-0.5 bg-border"></div>
+                    {progressList.map((item, idx) => (
+                      <div key={idx} className="relative pb-2">
+                        <div
+                          className={`absolute left-[-20px] top-1 h-3.5 w-3.5 rounded-full border-2 border-background ${
+                            idx === 0 ? "bg-primary" : "bg-orange-500"
+                          }`}
+                        />
+                        <div className="ml-4 space-y-1">
+                          <p
+                            className={`text-sm font-medium ${
+                              idx === 0 ? "text-primary" : "text-orange-500"
+                            }`}
+                          >
+                            {item.createTime?.slice(0, 19)}
+                          </p>
+                          <p className="text-sm text-foreground">{item.title}</p>
+                          <p className="text-sm text-muted-foreground">{item.content}</p>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}
 
-{/* 底部按钮 */}
+          {/* 底部按钮 */}
           <div className="flex justify-end">
             <Button variant="outline" onClick={() => setDetailDialogOpen(false)}>
               关闭
@@ -826,7 +994,7 @@ export default function MaintenancePage() {
       </Dialog>
 
       {/* 新增报修对话框 */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={handleDialogOpenChange}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>新增报修</DialogTitle>
@@ -851,14 +1019,18 @@ export default function MaintenancePage() {
                 <span className="text-red-500 mr-1">*</span>
                 选择楼栋:
               </Label>
-              <Select value={formBuilding} onValueChange={handleBuildingChange}>
+              <Select
+                value={formBuilding}
+                onValueChange={handleBuildingChange}
+                disabled={formLoading}
+              >
                 <SelectTrigger>
-                  <SelectValue placeholder="请选择楼栋" />
+                  <SelectValue placeholder={formLoading ? "加载中..." : "请选择楼栋"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.keys(buildingData).map((building) => (
-                    <SelectItem key={building} value={building}>
-                      {building}
+                  {buildingList.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>
+                      {b.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -871,18 +1043,18 @@ export default function MaintenancePage() {
                 <span className="text-red-500 mr-1">*</span>
                 选择楼层:
               </Label>
-              <Select 
-                value={formFloor} 
+              <Select
+                value={formFloor}
                 onValueChange={handleFloorChange}
-                disabled={!formBuilding}
+                disabled={!formBuilding || formLoading}
               >
                 <SelectTrigger>
                   <SelectValue placeholder={formBuilding ? "请选择楼层" : "请先选择楼栋"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {getAvailableFloors().map((floor) => (
-                    <SelectItem key={floor} value={floor}>
-                      {floor}
+                  {floorList.map((f) => (
+                    <SelectItem key={f.id} value={f.id}>
+                      {f.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -895,18 +1067,18 @@ export default function MaintenancePage() {
                 <span className="text-red-500 mr-1">*</span>
                 选择教室:
               </Label>
-              <Select 
-                value={formClassroom} 
+              <Select
+                value={formClassroom}
                 onValueChange={setFormClassroom}
-                disabled={!formFloor}
+                disabled={!formFloor || formLoading}
               >
                 <SelectTrigger>
                   <SelectValue placeholder={formFloor ? "请选择教室" : "请先选择楼层"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {getAvailableClassrooms().map((classroom) => (
-                    <SelectItem key={classroom} value={classroom}>
-                      {classroom}
+                  {roomList.map((r) => (
+                    <SelectItem key={r.id} value={r.id}>
+                      {r.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -949,21 +1121,34 @@ export default function MaintenancePage() {
 
           {/* 底部按钮 */}
           <div className="flex justify-end gap-3">
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                resetForm()
-                setDialogOpen(false)
-              }}
-            >
+            <Button variant="outline" onClick={() => handleDialogOpenChange(false)}>
               取消
             </Button>
-            <Button onClick={() => {
-              // 这里可以添加表单验证和提交逻辑
-              resetForm()
-              setDialogOpen(false)
-            }}>
-              确定
+            <Button
+              disabled={formSubmitting || !formTitle || !formBuilding || !formFloor || !formClassroom || !formFaultType}
+              onClick={async () => {
+                if (!formTitle || !formBuilding || !formFloor || !formClassroom || !formFaultType) return
+                setFormSubmitting(true)
+                try {
+                  await addWorkOrder({
+                    buildingId: formBuilding,
+                    floorId: formFloor,
+                    roomId: formClassroom,
+                    title: formTitle,
+                    faultType: faultTypeToApi[formFaultType] ?? 1,
+                    description: formDescription || undefined,
+                    status: 0,
+                  })
+                  handleDialogOpenChange(false)
+                  fetchTickets(1)
+                } catch (err) {
+                  console.error("新增报修失败:", err)
+                } finally {
+                  setFormSubmitting(false)
+                }
+              }}
+            >
+              {formSubmitting ? "提交中..." : "确定"}
             </Button>
           </div>
         </DialogContent>

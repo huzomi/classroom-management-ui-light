@@ -1,9 +1,11 @@
 /**
  * 统一 API 客户端
- * 基础地址通过 NEXT_PUBLIC_API_BASE_URL 配置，默认 192.168.10.11:8200/jeecgboot
+ * 基础地址通过 NEXT_PUBLIC_API_BASE_URL 配置
+ * 开发环境: http://localhost:8201/jeecg-boot
+ * 生产环境: http://127.0.0.1:8080/jeecg-boot
  */
 const BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://192.168.10.11:8200/jeecgboot"
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8201/jeecg-boot"
 
 export interface ApiResult<T> {
   success: boolean
