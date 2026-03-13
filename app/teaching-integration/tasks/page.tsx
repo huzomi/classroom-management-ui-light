@@ -1,568 +1,424 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Search, Plus, Clock, Repeat, Zap, Play, Trash2, Copy, Edit, Hand, Calendar } from "lucide-react"
+import {
+  Search,
+  Plus,
+  Clock,
+  Repeat,
+  Zap,
+  Play,
+  Trash2,
+  Copy,
+  Edit,
+  Hand,
+  Calendar,
+  FileText,
+  Loader2,
+} from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Checkbox } from "@/components/ui/checkbox"
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
+  getTaskNum,
+  getTaskPage,
+  deleteTask,
+  executeTask,
+  reactiveTask,
+  type TaskDataVO,
+  type TaskVO,
+} from "@/lib/api/task"
+import { cn } from "@/lib/utils"
+import { toast } from "@/hooks/use-toast"
+import { TaskLogModal } from "./components/task-log-modal"
+
+const TASK_TYPE_MAP: Record<string, string> = {
+  device_control: "设备控制",
+  inspection: "设备巡检",
+  control: "设备控制",
+  patrol: "设备巡检",
+}
+
+function getTaskTypeText(type?: string): string {
+  return (type && TASK_TYPE_MAP[type]) || type || "-"
+}
 
 export default function TaskManagementPage() {
-  const [taskFilter, setTaskFilter] = useState("all")
-  const [showCreateDialog, setShowCreateDialog] = useState(false)
-  const [taskType, setTaskType] = useState<"manual" | "auto">("auto")
-  const [scheduleType, setScheduleType] = useState<"daily" | "weekly" | "follow-schedule">("daily")
-  const [actionType, setActionType] = useState<"control" | "inspection">("control")
+  const [statistics, setStatistics] = useState<TaskDataVO | null>(null)
+  const [taskList, setTaskList] = useState<TaskVO[]>([])
+  const [loading, setLoading] = useState(true)
+  const [searchKeyword, setSearchKeyword] = useState("")
+  const [deleteTarget, setDeleteTarget] = useState<TaskVO | null>(null)
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [logModalOpen, setLogModalOpen] = useState(false)
+  const [logTaskId, setLogTaskId] = useState<string | null>(null)
+  const [logTaskName, setLogTaskName] = useState<string>("")
 
-  const tasks = [
-    {
-      id: 1,
-      name: "早晨设备预热",
-      type: "auto" as const,
-      time: "07:30",
-      repeat: "工作日",
-      actions: ["开启投影", "开启电脑", "开启空调"],
-      enabled: true,
-      nextRun: "2024-12-30 07:30",
-      lastRun: "2024-12-29 07:30",
-      status: "success",
-      actionType: "control",
-    },
-    {
-      id: 2,
-      name: "晚间设备关闭",
-      type: "auto" as const,
-      time: "22:00",
-      repeat: "每天",
-      actions: ["关闭投影", "关闭电脑", "关闭灯光", "关闭空调"],
-      enabled: true,
-      nextRun: "2024-12-29 22:00",
-      lastRun: "2024-12-28 22:00",
-      status: "success",
-      actionType: "control",
-    },
-    {
-      id: 3,
-      name: "周末巡检",
-      type: "auto" as const,
-      time: "09:00",
-      repeat: "周末",
-      actions: ["设备自检", "环境监测"],
-      enabled: false,
-      nextRun: "2024-12-30 09:00",
-      lastRun: "2024-12-28 09:00",
-      status: "paused",
-      actionType: "inspection",
-    },
-    {
-      id: 4,
-      name: "午休设备关闭",
-      type: "auto" as const,
-      time: "12:00",
-      repeat: "工作日",
-      actions: ["关闭投影", "降低空调", "关闭部分灯光"],
-      enabled: true,
-      nextRun: "2024-12-30 12:00",
-      lastRun: "2024-12-29 12:00",
-      status: "success",
-      actionType: "control",
-    },
-    {
-      id: 5,
-      name: "手动检查教学设备",
-      type: "manual" as const,
-      time: "-",
-      repeat: "手动触发",
-      actions: ["设备巡检", "生成报告"],
-      enabled: true,
-      nextRun: "-",
-      lastRun: "2024-12-28 14:30",
-      status: "success",
-      actionType: "inspection",
-    },
-  ]
+  const loadStatistics = useCallback(async () => {
+    try {
+      const data = await getTaskNum()
+      setStatistics(data ?? null)
+    } catch (err) {
+      console.error("加载统计数据失败:", err)
+    }
+  }, [])
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "success":
-        return <div className="h-2 w-2 rounded-full bg-green-400"></div>
-      case "error":
-        return <div className="h-2 w-2 rounded-full bg-red-400"></div>
-      default:
-        return <div className="h-2 w-2 rounded-full bg-gray-400"></div>
+  const loadTaskList = useCallback(async (taskName?: string) => {
+    setLoading(true)
+    try {
+      const records = await getTaskPage({
+        page: 1,
+        pageSize: 100,
+        name: taskName?.trim() || undefined,
+      })
+      setTaskList(records)
+    } catch (err) {
+      console.error("加载任务列表失败:", err)
+      setTaskList([])
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadStatistics()
+  }, [loadStatistics])
+
+  useEffect(() => {
+    loadTaskList()
+  }, [loadTaskList])
+
+  const handleSearch = () => {
+    loadTaskList(searchKeyword || undefined)
+  }
+
+  const handleEdit = (task: TaskVO) => {
+    window.location.href = `/teaching-integration/tasks/create?id=${task.id}`
+  }
+
+  const handleDelete = async (task: TaskVO) => {
+    setActionLoading(task.id)
+    try {
+      await deleteTask([task.id])
+      setDeleteTarget(null)
+      toast({ title: "删除成功" })
+      await loadTaskList(searchKeyword || undefined)
+      await loadStatistics()
+    } catch (err) {
+      console.error("删除失败:", err)
+      toast({ title: "删除失败", variant: "destructive" })
+    } finally {
+      setActionLoading(null)
     }
   }
 
-  const getTaskIcon = (type: "manual" | "auto") => {
-    return type === "manual" ? (
-      <Hand className="h-6 w-6 text-orange-400" />
-    ) : (
-      <Zap className="h-6 w-6 text-purple-400" />
-    )
+  const handleToggleTask = async (task: TaskVO) => {
+    const nextStatus = task.status === 1 ? 0 : 1
+    setActionLoading(task.id)
+    try {
+      await reactiveTask(task.id, nextStatus as 0 | 1)
+      toast({ title: nextStatus === 1 ? "任务已启用" : "任务已暂停" })
+      await loadTaskList(searchKeyword || undefined)
+      await loadStatistics()
+    } catch (err) {
+      console.error("更新任务状态失败:", err)
+      toast({ title: "更新状态失败", variant: "destructive" })
+    } finally {
+      setActionLoading(null)
+    }
   }
 
+  const handleExecuteTask = async (task: TaskVO) => {
+    setActionLoading(task.id)
+    try {
+      await executeTask(task.id)
+      toast({ title: "执行成功" })
+      await loadTaskList(searchKeyword || undefined)
+      await loadStatistics()
+    } catch (err) {
+      console.error("执行任务失败:", err)
+      toast({ title: "执行失败", variant: "destructive" })
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleCopyTask = (task: TaskVO) => {
+    const params = new URLSearchParams()
+    params.set("copy", task.id)
+    params.set("name", `${task.taskName ?? ""}_副本`)
+    window.location.href = `/teaching-integration/tasks/create?${params.toString()}`
+  }
+
+  const handleViewLog = (task: TaskVO) => {
+    setLogTaskId(task.id)
+    setLogTaskName(task.taskName ?? "")
+    setLogModalOpen(true)
+  }
+
+  const taskMode = (t: TaskVO) => (t.taskType === "manual" ? "manual" : "auto")
+  const actions = (t: TaskVO) => t.taskTypeVOS?.map((x) => x.name).filter(Boolean) ?? []
+  const executeTime = (t: TaskVO) => t.taskHour ?? "-"
+  const cycle = (t: TaskVO) => t.taskCycle ?? "-"
+  const lastExecuteTime = (t: TaskVO) => t.lastActiveTime ?? null
+
   return (
-    <main className="flex-1 overflow-auto p-6">
-      <div className="space-y-4">
-        {/* Stats */}
+    <main className="flex-1 overflow-auto p-6 bg-muted/30 min-h-full">
+      <div className="mx-auto max-w-6xl space-y-6">
+        {/* 统计卡片 */}
         <div className="grid grid-cols-4 gap-4">
-          <div className="rounded-lg border border-border bg-card p-4">
-            <div className="text-sm text-muted-foreground">总任务数</div>
-            <div className="mt-1 text-2xl font-semibold text-foreground">{tasks.length}</div>
-          </div>
-          <div className="rounded-lg border border-border bg-card p-4">
-            <div className="text-sm text-muted-foreground">运行中</div>
-            <div className="mt-1 text-2xl font-semibold text-green-400">{tasks.filter((t) => t.enabled).length}</div>
-          </div>
-          <div className="rounded-lg border border-border bg-card p-4">
-            <div className="text-sm text-muted-foreground">已暂停</div>
-            <div className="mt-1 text-2xl font-semibold text-muted-foreground">
-              {tasks.filter((t) => !t.enabled).length}
+          <div className="flex items-center gap-4 rounded-lg border border-border bg-card p-6 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-md">
+              <FileText className="h-7 w-7" />
+            </div>
+            <div>
+              <div className="text-sm text-muted-foreground">总任务数</div>
+              <div className="text-2xl font-bold text-foreground">{statistics?.all ?? "—"}</div>
             </div>
           </div>
-          <div className="rounded-lg border border-border bg-card p-4">
-            <div className="text-sm text-muted-foreground">今日执行</div>
-            <div className="mt-1 text-2xl font-semibold text-blue-400">12</div>
+          <div className="flex items-center gap-4 rounded-lg border border-border bg-card p-6 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 text-white shadow-md">
+              <Play className="h-7 w-7" />
+            </div>
+            <div>
+              <div className="text-sm text-muted-foreground">运行中</div>
+              <div className="text-2xl font-bold text-green-600">{statistics?.active ?? "—"}</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-4 rounded-lg border border-border bg-card p-6 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-yellow-400 text-white shadow-md">
+              <Clock className="h-7 w-7" />
+            </div>
+            <div>
+              <div className="text-sm text-muted-foreground">暂停中</div>
+              <div className="text-2xl font-bold text-muted-foreground">{statistics?.disable ?? "—"}</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-4 rounded-lg border border-border bg-card p-6 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-sky-400 text-white shadow-md">
+              <Calendar className="h-7 w-7" />
+            </div>
+            <div>
+              <div className="text-sm text-muted-foreground">需要执行</div>
+              <div className="text-2xl font-bold text-blue-600">{statistics?.today ?? "—"}</div>
+            </div>
           </div>
         </div>
 
-        {/* Search & Filter */}
-        <div className="flex items-center gap-3">
-          <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                创建任务
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>创建新任务</DialogTitle>
-                <DialogDescription>配置任务参数，实现自动化控制或巡检</DialogDescription>
-              </DialogHeader>
-
-              <div className="space-y-6 py-4">
-                {/* Task Type Selection */}
-                <div className="space-y-3">
-                  <Label className="text-base font-semibold">任务类型</Label>
-                  <Tabs value={taskType} onValueChange={(v) => setTaskType(v as "manual" | "auto")} className="w-full">
-                    <TabsList className="grid w-full grid-cols-2 h-12">
-                      <TabsTrigger value="auto" className="gap-2">
-                        <Zap className="h-4 w-4" />
-                        自动任务
-                      </TabsTrigger>
-                      <TabsTrigger value="manual" className="gap-2">
-                        <Hand className="h-4 w-4" />
-                        手动任务
-                      </TabsTrigger>
-                    </TabsList>
-                  </Tabs>
-                  <p className="text-xs text-muted-foreground">
-                    {taskType === "auto" ? "自动任务按设定的时间和周期自动执行" : "手动任务需要手动触发执行"}
-                  </p>
-                </div>
-
-                {/* Task Name */}
-                <div className="space-y-3">
-                  <Label htmlFor="task-name" className="text-base font-semibold">
-                    任务名称
-                  </Label>
-                  <Input id="task-name" placeholder="例如：早晨设备预热" className="h-10" />
-                </div>
-
-                {/* Action Type */}
-                <div className="space-y-3">
-                  <Label className="text-base font-semibold">动作类型</Label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setActionType("control")}
-                      className={`flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all ${
-                        actionType === "control"
-                          ? "border-primary bg-primary/10"
-                          : "border-border hover:border-primary/50"
-                      }`}
-                    >
-                      <Zap className="h-6 w-6" />
-                      <span className="font-medium">设备控制</span>
-                      <span className="text-xs text-muted-foreground">控制设备开关状态</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActionType("inspection")}
-                      className={`flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all ${
-                        actionType === "inspection"
-                          ? "border-primary bg-primary/10"
-                          : "border-border hover:border-primary/50"
-                      }`}
-                    >
-                      <Search className="h-6 w-6" />
-                      <span className="font-medium">设备巡检</span>
-                      <span className="text-xs text-muted-foreground">检查设备状态和环境</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Auto Task Settings */}
-                {taskType === "auto" && (
-                  <div className="space-y-3">
-                    <Label className="text-base font-semibold">执行周期</Label>
-                    <Select
-                      value={scheduleType}
-                      onValueChange={(v) => setScheduleType(v as "daily" | "weekly" | "follow-schedule")}
-                    >
-                      <SelectTrigger className="h-10">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="follow-schedule">
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4" />
-                            <span>跟随课表</span>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="daily">
-                          <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4" />
-                            <span>按日执行</span>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="weekly">
-                          <div className="flex items-center gap-2">
-                            <Repeat className="h-4 w-4" />
-                            <span>按周执行</span>
-                          </div>
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-
-                    {/* Follow Schedule Settings */}
-                    {scheduleType === "follow-schedule" && (
-                      <div className="space-y-4 rounded-lg border border-primary/50 bg-primary/5 p-4">
-                        <div className="space-y-3">
-                          <Label className="font-medium">触发时机</Label>
-                          <div className="space-y-3">
-                            <div className="flex items-center gap-3 rounded-md border border-border bg-background p-3">
-                              <Checkbox id="before-class" defaultChecked />
-                              <Label htmlFor="before-class" className="flex-1 font-normal cursor-pointer">
-                                上课前触发
-                              </Label>
-                              <Input type="number" className="w-16 h-8" placeholder="5" defaultValue="5" />
-                              <span className="text-sm text-muted-foreground">分钟</span>
-                            </div>
-                            <div className="flex items-center gap-3 rounded-md border border-border bg-background p-3">
-                              <Checkbox id="after-class" />
-                              <Label htmlFor="after-class" className="flex-1 font-normal cursor-pointer">
-                                下课后触发
-                              </Label>
-                              <Input type="number" className="w-16 h-8" placeholder="5" defaultValue="5" />
-                              <span className="text-sm text-muted-foreground">分钟</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="space-y-3">
-                          <Label className="font-medium">应用教室</Label>
-                          <Select defaultValue="all">
-                            <SelectTrigger className="h-10">
-                              <SelectValue placeholder="选择教室范围" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">全部教室</SelectItem>
-                              <SelectItem value="building">指定教学楼</SelectItem>
-                              <SelectItem value="floor">指定楼层</SelectItem>
-                              <SelectItem value="custom">自定义选择</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Daily Settings */}
-                    {scheduleType === "daily" && (
-                      <div className="space-y-4 rounded-lg border border-primary/50 bg-primary/5 p-4">
-                        <div className="space-y-3">
-                          <Label htmlFor="daily-time" className="font-medium">
-                            执行时间
-                          </Label>
-                          <Input id="daily-time" type="time" defaultValue="07:30" className="h-10" />
-                        </div>
-                        <div className="space-y-3">
-                          <Label className="font-medium">重复日期</Label>
-                          <div className="grid grid-cols-7 gap-2">
-                            {["一", "二", "三", "四", "五", "六", "日"].map((day, idx) => (
-                              <div key={day} className="flex flex-col items-center gap-2">
-                                <Checkbox id={`day-${idx}`} defaultChecked={idx < 5} />
-                                <Label htmlFor={`day-${idx}`} className="text-xs font-normal cursor-pointer">
-                                  周{day}
-                                </Label>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Weekly Settings */}
-                    {scheduleType === "weekly" && (
-                      <div className="space-y-4 rounded-lg border border-primary/50 bg-primary/5 p-4">
-                        <div className="space-y-3">
-                          <Label htmlFor="weekly-time" className="font-medium">
-                            执行时间
-                          </Label>
-                          <Input id="weekly-time" type="time" defaultValue="09:00" className="h-10" />
-                        </div>
-                        <div className="space-y-3">
-                          <Label className="font-medium">星期选择</Label>
-                          <Select defaultValue="1">
-                            <SelectTrigger className="h-10">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="1">每周一</SelectItem>
-                              <SelectItem value="2">每周二</SelectItem>
-                              <SelectItem value="3">每周三</SelectItem>
-                              <SelectItem value="4">每周四</SelectItem>
-                              <SelectItem value="5">每周五</SelectItem>
-                              <SelectItem value="6">每周六</SelectItem>
-                              <SelectItem value="0">每周日</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Actions Configuration - Only for Control Type */}
-                {actionType === "control" && (
-                  <div className="space-y-3">
-                    <Label className="text-base font-semibold">执行动作</Label>
-                    <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-4">
-                      <div className="grid gap-3">
-                        <div className="flex items-center gap-3 rounded-md border border-primary/50 bg-primary/5 p-3">
-                          <Checkbox id="class-control" />
-                          <Label htmlFor="class-control" className="flex-1 font-normal cursor-pointer">
-                            上下课
-                          </Label>
-                          <Select defaultValue="open">
-                            <SelectTrigger className="w-28 h-8">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="open">开启</SelectItem>
-                              <SelectItem value="close">关闭</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="my-2 border-t border-border"></div>
-                        {[
-                          { id: "projector", label: "投影仪", options: ["开启", "关闭"] },
-                          { id: "computer", label: "电脑", options: ["开启", "关闭"] },
-                          { id: "lights", label: "灯光", options: ["开启", "关闭"] },
-                          { id: "ac", label: "空调", options: ["开启", "关闭", "24°C", "26°C"] },
-                          { id: "amplifier", label: "功放", options: ["开启", "关闭"] },
-                        ].map((device) => (
-                          <div
-                            key={device.id}
-                            className="flex items-center gap-3 rounded-md border border-border bg-background p-3"
-                          >
-                            <Checkbox id={device.id} />
-                            <Label htmlFor={device.id} className="flex-1 font-normal cursor-pointer">
-                              {device.label}
-                            </Label>
-                            <Select defaultValue={device.options[0]}>
-                              <SelectTrigger className="w-28 h-8">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {device.options.map((opt) => (
-                                  <SelectItem key={opt} value={opt.toLowerCase()}>
-                                    {opt}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Inspection Configuration - Only for Inspection Type */}
-                {actionType === "inspection" && (
-                  <div className="space-y-3">
-                    <Label className="text-base font-semibold">巡检项目</Label>
-                    <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-4">
-                      {[
-                        { id: "status", label: "设备状态检查", description: "检查设备在线状态和运行情况" },
-                        { id: "environment", label: "环境监测", description: "温度、湿度、PM2.5等环境数据" },
-                        { id: "report", label: "生成报告", description: "自动生成巡检报告" },
-                        { id: "alert", label: "异常告警", description: "发现异常自动发送告警" },
-                      ].map((item) => (
-                        <div
-                          key={item.id}
-                          className="flex items-start gap-3 rounded-md border border-border bg-background p-3"
-                        >
-                          <Checkbox id={item.id} className="mt-0.5" defaultChecked />
-                          <div className="flex-1">
-                            <Label htmlFor={item.id} className="font-normal cursor-pointer">
-                              {item.label}
-                            </Label>
-                            <p className="text-xs text-muted-foreground mt-1">{item.description}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Apply to Classrooms */}
-                <div className="space-y-3">
-                  <Label className="text-base font-semibold">应用教室</Label>
-                  <Select defaultValue="all">
-                    <SelectTrigger className="h-10">
-                      <SelectValue placeholder="选择应用范围" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">全部教室</SelectItem>
-                      <SelectItem value="building-1">第一教学楼</SelectItem>
-                      <SelectItem value="building-2">第二教学楼</SelectItem>
-                      <SelectItem value="building-3">实验楼</SelectItem>
-                      <SelectItem value="floor-1">第一教学楼 1层</SelectItem>
-                      <SelectItem value="floor-2">第一教学楼 2层</SelectItem>
-                      <SelectItem value="custom">自定义选择教室</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    {actionType === "control" ? "任务将控制选定范围内的所有教室设备" : "任务将巡检选定范围内的所有教室"}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3 border-t border-border pt-4">
-                <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
-                  取消
+        {/* 任务列表 */}
+        <div className="rounded-lg border border-border bg-card p-6 shadow-sm">
+          <div className="mb-6 flex items-center justify-between border-b border-border pb-4">
+            <h3 className="text-xl font-semibold text-foreground">任务列表</h3>
+            <div className="flex items-center gap-3">
+              <div className="relative flex w-60">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="请输入任务名称"
+                  value={searchKeyword}
+                  onChange={(e) => setSearchKeyword(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                  className="pl-9 pr-4"
+                />
+                <Button variant="secondary" size="sm" className="ml-2 shrink-0" onClick={handleSearch}>
+                  搜索
                 </Button>
-                <Button onClick={() => setShowCreateDialog(false)}>
+              </div>
+              <Button asChild>
+                <Link href="/teaching-integration/tasks/create">
                   <Plus className="mr-2 h-4 w-4" />
-                  创建任务
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input placeholder="搜索任务..." className="pl-10" />
+                  新增任务
+                </Link>
+              </Button>
+            </div>
           </div>
-          <Select value={taskFilter} onValueChange={setTaskFilter}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="任务状态" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部任务</SelectItem>
-              <SelectItem value="enabled">运行中</SelectItem>
-              <SelectItem value="disabled">已暂停</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
 
-        {/* Task List */}
-        <div className="space-y-3">
-          {tasks.map((task) => (
-            <div
-              key={task.id}
-              className="rounded-lg border border-border bg-card p-4 transition-colors hover:border-purple-500/50"
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex flex-1 items-start gap-4">
+          <div className="space-y-4">
+            {loading ? (
+              <div className="flex items-center justify-center py-16">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : taskList.length === 0 ? (
+              <div className="py-16 text-center text-sm text-muted-foreground">暂无任务</div>
+            ) : (
+              taskList.map((task) => (
+                <div
+                  key={task.id}
+                  className={cn(
+                    "flex items-start gap-4 rounded-lg border border-border bg-card p-4 transition-all hover:shadow-md hover:-translate-y-0.5",
+                    taskMode(task) === "auto" && "border-l-4 border-l-purple-500",
+                    taskMode(task) === "manual" && "border-l-4 border-l-orange-500"
+                  )}
+                >
                   <div
-                    className={`flex h-12 w-12 items-center justify-center rounded-lg ${
-                      task.type === "manual" ? "bg-orange-500/10" : "bg-purple-500/10"
-                    }`}
+                    className={cn(
+                      "flex h-14 w-14 shrink-0 items-center justify-center rounded-lg shadow-md",
+                      taskMode(task) === "auto"
+                        ? "bg-gradient-to-br from-purple-400 to-purple-600 text-white"
+                        : "bg-gradient-to-br from-orange-400 to-orange-600 text-white"
+                    )}
                   >
-                    {getTaskIcon(task.type)}
+                    {taskMode(task) === "auto" ? (
+                      <Zap className="h-6 w-6" />
+                    ) : (
+                      <Hand className="h-6 w-6" />
+                    )}
                   </div>
 
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3">
-                      <h3 className="font-medium text-foreground">{task.name}</h3>
-                      <Badge variant="outline">{task.type === "manual" ? "手动任务" : "自动任务"}</Badge>
-                      <Badge variant={task.enabled ? "default" : "secondary"}>
-                        {task.enabled ? "运行中" : "已暂停"}
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-2 flex flex-wrap items-center gap-2">
+                      <h4 className="font-semibold text-foreground">{task.taskName}</h4>
+                      {task.description && (
+                        <div
+                          className="max-w-full truncate text-xs text-muted-foreground"
+                          title={task.description}
+                        >
+                          {task.description}
+                        </div>
+                      )}
+                      <Badge
+                        variant="outline"
+                        className={taskMode(task) === "auto" ? "border-purple-500/50 text-purple-600" : "border-orange-500/50 text-orange-600"}
+                      >
+                        {taskMode(task) === "auto" ? "自动任务" : "手动任务"}
                       </Badge>
-                      {getStatusIcon(task.status)}
                     </div>
 
-                    <div className="mt-3 flex items-center gap-6 text-sm text-muted-foreground">
+                    <div className="mb-2 flex flex-wrap gap-4 text-sm text-muted-foreground">
                       <div className="flex items-center gap-2">
                         <Clock className="h-4 w-4" />
-                        <span>执行时间: {task.time}</span>
+                        <span>执行时间: {executeTime(task)}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Repeat className="h-4 w-4" />
-                        <span>循环: {task.repeat}</span>
+                        <span>循环: {cycle(task)}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Calendar className="h-4 w-4" />
-                        <span>类型: {task.actionType === "control" ? "设备控制" : "设备巡检"}</span>
+                        <span>类型: {getTaskTypeText(task.taskTypeVOS?.[0]?.taskType ?? task.taskType)}</span>
                       </div>
                     </div>
 
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {task.actions.map((action, idx) => (
-                        <Badge key={idx} variant="outline" className="text-xs">
-                          {action}
-                        </Badge>
-                      ))}
-                    </div>
-
-                    {task.type === "auto" && (
-                      <div className="mt-3 flex gap-6 text-xs text-muted-foreground">
-                        <span>下次执行: {task.nextRun}</span>
-                        <span>上次执行: {task.lastRun}</span>
+                    {actions(task).length > 0 && (
+                      <div className="mb-2 flex flex-wrap gap-2">
+                        {actions(task).map((action, idx) => (
+                          <Badge key={idx} variant="secondary" className="text-xs font-normal">
+                            {action}
+                          </Badge>
+                        ))}
                       </div>
                     )}
-                    {task.type === "manual" && (
-                      <div className="mt-3 flex gap-6 text-xs text-muted-foreground">
-                        <span>上次执行: {task.lastRun}</span>
-                      </div>
+
+                    {lastExecuteTime(task) && (
+                      <div className="text-xs text-muted-foreground">上次执行: {lastExecuteTime(task)}</div>
                     )}
                   </div>
-                </div>
 
-                <div className="flex items-center gap-2">
-                  {task.type === "auto" && <Switch checked={task.enabled} />}
-                  <Button size="sm" variant="ghost" title="立即执行">
-                    <Play className="h-4 w-4" />
-                  </Button>
-                  <Button size="sm" variant="ghost" title="复制任务">
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                  <Button size="sm" variant="ghost" title="编辑任务">
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button size="sm" variant="ghost" title="删除任务">
-                    <Trash2 className="h-4 w-4 text-red-400" />
-                  </Button>
+                  <div className="flex shrink-0 items-center gap-1 border-l border-border pl-4">
+                    {taskMode(task) === "auto" && (
+                      <Switch
+                        checked={task.status === 1}
+                        onCheckedChange={() => handleToggleTask(task)}
+                        disabled={actionLoading === task.id}
+                      />
+                    )}
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8"
+                      title="立即执行"
+                      onClick={() => handleExecuteTask(task)}
+                      disabled={actionLoading === task.id}
+                    >
+                      {actionLoading === task.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Play className="h-4 w-4" />
+                      )}
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8"
+                      title="查看日志"
+                      onClick={() => handleViewLog(task)}
+                    >
+                      <FileText className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8"
+                      title="复制任务"
+                      onClick={() => handleCopyTask(task)}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8"
+                      title="编辑任务"
+                      onClick={() => handleEdit(task)}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 text-destructive hover:text-destructive"
+                      title="删除任务"
+                      onClick={() => setDeleteTarget(task)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            </div>
-          ))}
+              ))
+            )}
+          </div>
         </div>
       </div>
+
+      {/* 任务日志弹窗 */}
+      <TaskLogModal
+        open={logModalOpen}
+        onOpenChange={setLogModalOpen}
+        taskId={logTaskId}
+        taskName={logTaskName}
+      />
+
+      {/* 删除确认 */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确定删除该任务吗？</AlertDialogTitle>
+            <AlertDialogDescription>
+              删除后无法恢复，请谨慎操作。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteTarget && handleDelete(deleteTarget)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   )
 }

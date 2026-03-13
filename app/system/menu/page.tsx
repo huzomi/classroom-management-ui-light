@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -13,244 +14,161 @@ import {
   Wrench,
   Settings,
   Info,
+  Trash2,
+  Loader2,
 } from "lucide-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { MenuTable } from "@/components/system/menu-table"
+import { MenuDrawer, toMenuItem } from "./components/menu-drawer"
 import type { MenuItem } from "@/types/menu"
+import { getMenuList, deleteMenu, type MenuPermissionVO } from "@/lib/api/menu"
+import { toast } from "@/hooks/use-toast"
 
-// 模拟菜单数据
-const mockMenuData: MenuItem[] = [
-  {
-    id: "1",
-    name: "主页",
-    type: "一级菜单",
-    icon: "home",
-    component: "layouts/default/index",
-    path: "/dashboard",
-    sort: 1,
-  },
-  {
-    id: "2",
-    name: "低代码开发",
-    type: "一级菜单",
-    icon: "cloud",
-    component: "layouts/default/index",
-    path: "/online",
-    sort: 2,
-  },
-  {
-    id: "3",
-    name: "数据可视化",
-    type: "一级菜单",
-    icon: "bar-chart",
-    component: "layouts/default/index",
-    path: "/dataVisual",
-    sort: 3,
-  },
-  {
-    id: "4",
-    name: "AI大模型",
-    type: "一级菜单",
-    icon: "brain",
-    component: "layouts/default/index",
-    path: "/airag",
-    sort: 3,
-  },
-  {
-    id: "5",
-    name: "教室管理",
-    type: "一级菜单",
-    icon: "monitor",
-    component: "layouts/default/index",
-    path: "/room",
-    sort: 10,
-    children: [
-      {
-        id: "5-1",
-        name: "教学监控",
-        type: "子菜单",
-        icon: "eye",
-        component: "edu/teaching-supervision/index",
-        path: "/teaching-supervision",
-        sort: 11,
-        parentId: "5",
-      },
-    ],
-  },
-  {
-    id: "6",
-    name: "教学联动",
-    type: "一级菜单",
-    icon: "grid",
-    component: "layouts/default/index",
-    path: "/teaching-coordination",
-    sort: 12,
-  },
-  {
-    id: "7",
-    name: "系统运维",
-    type: "一级菜单",
-    icon: "wrench",
-    component: "layouts/default/index",
-    path: "/operations",
-    sort: 13,
-    children: [
-      {
-        id: "7-1",
-        name: "资产管理",
-        type: "子菜单",
-        icon: "briefcase",
-        component: "edu/asset/index",
-        path: "/asset",
-        sort: 14,
-        parentId: "7",
-      },
-    ],
-  },
-  {
-    id: "8",
-    name: "数据统计",
-    type: "子菜单",
-    icon: "pie-chart",
-    component: "layouts/default/index",
-    path: "/statistics",
-    sort: 15,
-  },
-  {
-    id: "9",
-    name: "系统管理",
-    type: "一级菜单",
-    icon: "settings",
-    component: "layouts/RouteView",
-    path: "/isystem",
-    sort: 40,
-  },
-  {
-    id: "10",
-    name: "我的租户",
-    type: "一级菜单",
-    icon: "user",
-    component: "layouts/RouteView",
-    path: "/mytenant",
-    sort: 42,
-  },
-  {
-    id: "11",
-    name: "系统监控",
-    type: "一级菜单",
-    icon: "activity",
-    component: "layouts/RouteView",
-    path: "/monitor",
-    sort: 50,
-  },
-  {
-    id: "12",
-    name: "消息中心",
-    type: "一级菜单",
-    icon: "message",
-    component: "layouts/default/index",
-    path: "/message",
-    sort: 70,
-  },
-]
+function filterByKeyword(items: MenuPermissionVO[], keyword: string): MenuPermissionVO[] {
+  if (!keyword.trim()) return items
+  const k = keyword.toLowerCase()
+  return items.reduce<MenuPermissionVO[]>((acc, item) => {
+    const matchedChildren = item.children ? filterByKeyword(item.children, keyword) : []
+    const nameMatch = (item.name ?? "").toLowerCase().includes(k)
+    if (nameMatch || matchedChildren.length > 0) {
+      acc.push({
+        ...item,
+        children: matchedChildren.length > 0 ? matchedChildren : item.children,
+      })
+    }
+    return acc
+  }, [])
+}
+
+function toMenuItems(items: MenuPermissionVO[]): MenuItem[] {
+  return items.map((vo) => toMenuItem(vo))
+}
 
 export default function MenuManagementPage() {
   const [searchName, setSearchName] = React.useState("")
-  const [selectedType, setSelectedType] = React.useState<string>("")
+  const [selectedType, setSelectedType] = React.useState<string>("__all__")
   const [selectedIds, setSelectedIds] = React.useState<string[]>([])
   const [expandedIds, setExpandedIds] = React.useState<string[]>([])
-  const [menuData, setMenuData] = React.useState<MenuItem[]>(mockMenuData)
-  const [pageSize, setPageSize] = React.useState(10)
+  const [rawTree, setRawTree] = React.useState<MenuPermissionVO[]>([])
+  const [menuData, setMenuData] = React.useState<MenuItem[]>([])
+  const [loading, setLoading] = React.useState(true)
+  const [drawerOpen, setDrawerOpen] = React.useState(false)
+  const [editRecord, setEditRecord] = React.useState<MenuItem | null>(null)
+  const [isUpdate, setIsUpdate] = React.useState(false)
+  const [parentIdForAdd, setParentIdForAdd] = React.useState<string | undefined>(undefined)
+  const [deleteTarget, setDeleteTarget] = React.useState<MenuItem | null>(null)
+  const [deleteIds, setDeleteIds] = React.useState<string[]>([])
 
-  // 获取所有菜单项的 ID
+  const loadList = useCallback(async () => {
+    setLoading(true)
+    try {
+      const tree = await getMenuList()
+      setRawTree(tree ?? [])
+      const filtered = filterByKeyword(tree ?? [], searchName)
+      const byType =
+        selectedType === "dir"
+          ? filtered.filter((i) => i.menuType === "0")
+          : selectedType === "menu"
+            ? filtered.filter((i) => i.menuType === "1")
+            : selectedType === "btn"
+              ? filtered.filter((i) => i.menuType === "2")
+              : filtered
+      setMenuData(toMenuItems(byType))
+    } catch (err) {
+      console.error("加载菜单列表失败:", err)
+      setRawTree([])
+      setMenuData([])
+    } finally {
+      setLoading(false)
+    }
+  }, [searchName, selectedType])
+
+  useEffect(() => {
+    loadList()
+  }, [loadList])
+
   const getAllIds = (items: MenuItem[]): string[] => {
     const ids: string[] = []
     for (const item of items) {
       ids.push(item.id)
-      if (item.children) {
-        ids.push(...getAllIds(item.children))
-      }
+      if (item.children) ids.push(...getAllIds(item.children))
     }
     return ids
   }
 
-  // 搜索
-  const handleSearch = () => {
-    if (!searchName.trim()) {
-      setMenuData(mockMenuData)
-      return
-    }
-    const filterData = (items: MenuItem[]): MenuItem[] => {
-      return items.reduce<MenuItem[]>((acc, item) => {
-        const matchedChildren = item.children ? filterData(item.children) : []
-        if (
-          item.name.toLowerCase().includes(searchName.toLowerCase()) ||
-          matchedChildren.length > 0
-        ) {
-          acc.push({
-            ...item,
-            children: matchedChildren.length > 0 ? matchedChildren : item.children,
-          })
-        }
-        return acc
-      }, [])
-    }
-    setMenuData(filterData(mockMenuData))
-  }
-
-  // 重置
+  const handleSearch = () => loadList()
   const handleReset = () => {
     setSearchName("")
-    setSelectedType("")
-    setMenuData(mockMenuData)
+    setSelectedType("__all__")
     setSelectedIds([])
   }
 
-  // 展开全部
-  const handleExpandAll = () => {
-    setExpandedIds(getAllIds(menuData))
-  }
-
-  // 折叠全部
-  const handleCollapseAll = () => {
-    setExpandedIds([])
-  }
-
-  // 切换展开状态
+  const handleExpandAll = () => setExpandedIds(getAllIds(menuData))
+  const handleCollapseAll = () => setExpandedIds([])
   const handleToggleExpand = (id: string) => {
-    setExpandedIds((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
-    )
+    setExpandedIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]))
   }
 
-  // 编辑
-  const handleEdit = (item: MenuItem) => {
-    console.log("编辑菜单:", item)
-    // TODO: 打开编辑弹窗
-  }
-
-  // 删除
-  const handleDelete = (item: MenuItem) => {
-    console.log("删除菜单:", item)
-    // TODO: 确认删除
-  }
-
-  // 添加子菜单
-  const handleAddChild = (item: MenuItem) => {
-    console.log("添加子菜单:", item)
-    // TODO: 打开添加子菜单弹窗
-  }
-
-  // 新增菜单
   const handleAddMenu = () => {
-    console.log("新增菜单")
-    // TODO: 打开新增菜单弹窗
+    setEditRecord(null)
+    setIsUpdate(false)
+    setParentIdForAdd(undefined)
+    setDrawerOpen(true)
   }
 
-  // 刷新
-  const handleRefresh = () => {
-    setMenuData(mockMenuData)
-    setSelectedIds([])
-    setExpandedIds([])
+  const handleEdit = (item: MenuItem) => {
+    setEditRecord(item)
+    setIsUpdate(true)
+    setParentIdForAdd(undefined)
+    setDrawerOpen(true)
+  }
+
+  const handleAddChild = (item: MenuItem) => {
+    setEditRecord(null)
+    setIsUpdate(false)
+    setParentIdForAdd(item.id)
+    setDrawerOpen(true)
+  }
+
+  const handleDelete = (item: MenuItem) => {
+    setDeleteTarget(item)
+    setDeleteIds([item.id])
+  }
+
+  const handleBatchDelete = () => {
+    if (selectedIds.length === 0) {
+      toast({ title: "请先选择要删除的数据", variant: "destructive" })
+      return
+    }
+    setDeleteTarget(null)
+    setDeleteIds([...selectedIds])
+  }
+
+  const confirmDelete = async () => {
+    try {
+      await deleteMenu(deleteIds)
+      toast({ title: "删除成功" })
+      setDeleteTarget(null)
+      setDeleteIds([])
+      setSelectedIds([])
+      loadList()
+    } catch (err) {
+      console.error("删除失败:", err)
+      toast({ title: "删除失败", variant: "destructive" })
+    }
+  }
+
+  const handleDrawerSuccess = () => {
+    loadList()
   }
 
   const totalItems = getAllIds(menuData).length
@@ -271,14 +189,16 @@ export default function MenuManagementPage() {
             />
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground whitespace-nowrap">菜单类型:</span>
+            <span className="text-sm text-muted-foreground whitespace-nowrap">状态:</span>
             <Select value={selectedType} onValueChange={setSelectedType}>
               <SelectTrigger className="w-48">
-                <SelectValue placeholder="请选择菜单类型" />
+                <SelectValue placeholder="全部" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="level1">一级菜单</SelectItem>
-                <SelectItem value="child">子菜单</SelectItem>
+                <SelectItem value="__all__">全部</SelectItem>
+                <SelectItem value="dir">目录</SelectItem>
+                <SelectItem value="menu">菜单</SelectItem>
+                <SelectItem value="btn">按钮</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -299,6 +219,15 @@ export default function MenuManagementPage() {
               <Plus className="h-4 w-4 mr-1" />
               新增
             </Button>
+            <Button
+              variant="outline"
+              onClick={handleBatchDelete}
+              disabled={selectedIds.length === 0}
+              className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive"
+            >
+              <Trash2 className="h-4 w-4 mr-1" />
+              批量删除
+            </Button>
             <Button variant="secondary" onClick={handleExpandAll}>
               <ChevronDown className="h-4 w-4 mr-1" />
               展开全部
@@ -309,7 +238,7 @@ export default function MenuManagementPage() {
             </Button>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={handleRefresh}>
+            <Button variant="ghost" size="icon" onClick={() => loadList()}>
               <RefreshCw className="h-4 w-4" />
             </Button>
             <Button variant="ghost" size="icon">
@@ -329,38 +258,63 @@ export default function MenuManagementPage() {
 
         {/* 表格 */}
         <div className="border border-border rounded-lg overflow-hidden">
-          <MenuTable
-            data={menuData}
-            selectedIds={selectedIds}
-            expandedIds={expandedIds}
-            onSelect={setSelectedIds}
-            onToggleExpand={handleToggleExpand}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-            onAddChild={handleAddChild}
-          />
+          {loading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : menuData.length === 0 ? (
+            <div className="py-16 text-center text-sm text-muted-foreground">暂无数据</div>
+          ) : (
+            <MenuTable
+              data={menuData}
+              selectedIds={selectedIds}
+              expandedIds={expandedIds}
+              onSelect={setSelectedIds}
+              onToggleExpand={handleToggleExpand}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+              onAddChild={handleAddChild}
+            />
+          )}
         </div>
 
         {/* 分页 */}
         <div className="flex items-center justify-end gap-4">
           <span className="text-sm text-muted-foreground">共 {totalItems} 条数据</span>
-          <div className="flex items-center gap-1">
-            <Button variant="outline" size="sm" className="h-8 w-8 p-0 bg-primary text-primary-foreground">
-              1
-            </Button>
-          </div>
-          <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
-            <SelectTrigger className="w-24 h-8">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="10">10 条/页</SelectItem>
-              <SelectItem value="20">20 条/页</SelectItem>
-              <SelectItem value="50">50 条/页</SelectItem>
-            </SelectContent>
-          </Select>
         </div>
       </div>
+
+      <MenuDrawer
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        record={editRecord}
+        isUpdate={isUpdate}
+        parentId={parentIdForAdd}
+        treeData={rawTree}
+        onSuccess={handleDrawerSuccess}
+      />
+
+      <AlertDialog open={deleteIds.length > 0} onOpenChange={(open) => !open && (setDeleteTarget(null), setDeleteIds([]))}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确定删除吗？</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget
+                ? `将删除菜单「${deleteTarget.name}」，此操作不可恢复。`
+                : `将删除选中的 ${deleteIds.length} 个菜单，此操作不可恢复。`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              确认删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   )
 }

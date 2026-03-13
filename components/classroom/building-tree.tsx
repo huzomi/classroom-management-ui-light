@@ -65,6 +65,19 @@ export function getAllRoomIds(nodes: TreeNode[]): string[] {
   return ids
 }
 
+/** 从树数据中收集 roomId -> name 映射（用于监控页显示） */
+export function getRoomIdToName(nodes: TreeNode[]): Record<string, string> {
+  const map: Record<string, string> = {}
+  const walk = (list: TreeNode[]) => {
+    for (const node of list) {
+      if (node.type === "room" && node.roomId) map[node.roomId] = node.name
+      if (node.children?.length) walk(node.children)
+    }
+  }
+  walk(nodes)
+  return map
+}
+
 interface BuildingTreeProps {
   selectedNode?: string | null
   onSelectNode?: (node: TreeNode) => void
@@ -257,7 +270,16 @@ export function BuildingTree({
         <span className="text-xs text-muted-foreground">{displaySubtitle}</span>
       </div>
       {isMonitoringMode && (
-        <div className="mb-2 px-2">
+        <div className="mb-2 flex gap-2 px-2">
+          {selectedRoomIds!.length > 0 && (
+            <button
+              type="button"
+              onClick={() => onRoomSelectionChange!([])}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              清空
+            </button>
+          )}
           <button
             type="button"
             onClick={() => {

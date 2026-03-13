@@ -1,10 +1,9 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Card } from "@/components/ui/card"
-import { BuildingTree, getAllRoomIds, type TreeNode } from "@/components/classroom/building-tree"
+import { BuildingTree, getAllRoomIds, getRoomIdToName, type TreeNode } from "@/components/classroom/building-tree"
 
 import {
   LayoutGrid,
@@ -16,9 +15,9 @@ import {
   Video,
   Play,
   Building2,
-  ClipboardList,
 } from "lucide-react"
 import { TeachingEvaluationSheet, type CourseInfo } from "@/components/monitoring/teaching-evaluation-sheet"
+import { MonitorCard } from "@/components/monitoring/monitor-card"
 
 // 教室监控状态 Mock 数据（与 treeData 中的 roomId 对应）
 type MonitorStatus = "in-class" | "idle" | "fault"
@@ -48,15 +47,37 @@ export default function MonitoringPage() {
   const [filterStatus, setFilterStatus] = useState<string>("all")
   const [audioEnabled, setAudioEnabled] = useState<Set<string>>(new Set())
   const [showSidebar, setShowSidebar] = useState(true)
-  const [selectedClassrooms, setSelectedClassrooms] = useState<string[]>(["a101", "a102", "a103", "a201"])
+  const [selectedClassrooms, setSelectedClassrooms] = useState<string[]>([])
   const [autoRotate, setAutoRotate] = useState(false)
   const [evaluationOpen, setEvaluationOpen] = useState(false)
   const [evaluationCourse, setEvaluationCourse] = useState<CourseInfo | null>(null)
   const [allRoomIds, setAllRoomIds] = useState<string[]>([])
+  const [roomIdToName, setRoomIdToName] = useState<Record<string, string>>({})
 
   const handleTreeLoaded = useCallback((tree: TreeNode[]) => {
     setAllRoomIds(getAllRoomIds(tree))
+    setRoomIdToName(getRoomIdToName(tree))
   }, [])
+
+  const maxDisplay = gridMode === "single" ? 1 : gridMode === "quad" ? 4 : 6
+
+  const handleRoomSelectionChange = useCallback(
+    (next: string[]) => {
+      if (next.length <= maxDisplay) {
+        setSelectedClassrooms(next)
+        return
+      }
+      setSelectedClassrooms(next.slice(-maxDisplay))
+    },
+    [maxDisplay]
+  )
+
+  useEffect(() => {
+    setSelectedClassrooms((prev) => {
+      if (prev.length <= maxDisplay) return prev
+      return prev.slice(-maxDisplay)
+    })
+  }, [maxDisplay])
 
   const openEvaluation = (classroom: (typeof mockClassroomStatus)[string] & { id: string }) => {
     if (classroom.status !== "in-class" || !classroom.course || !classroom.teacher) return
@@ -80,16 +101,24 @@ export default function MonitoringPage() {
   }
 
   const gridClass = gridMode === "single" ? "grid-cols-1" : gridMode === "quad" ? "grid-cols-2" : "grid-cols-3"
-  const maxDisplay = gridMode === "single" ? 1 : gridMode === "quad" ? 4 : 6
 
   const filteredClassrooms = selectedClassrooms
     .map((id) => {
       const info = mockClassroomStatus[id]
-      return info ? { id, ...info } : null
+      const fallback = {
+        id,
+        name: roomIdToName[id] ?? id,
+        status: "idle" as MonitorStatus,
+        teacher: null as string | null,
+        course: null as string | null,
+        time: null as string | null,
+        camera: "teacher" as const,
+      }
+      return info ? { id, ...info } : fallback
     })
-    .filter((c): c is NonNullable<typeof c> => c !== null && (filterStatus === "all" || c.status === filterStatus))
+    .filter((c) => filterStatus === "all" || c.status === filterStatus)
 
-  const displayClassrooms = filteredClassrooms.slice(0, maxDisplay)
+  const displayClassrooms = filteredClassrooms
 
 
   return (
@@ -98,9 +127,9 @@ export default function MonitoringPage() {
         <div className="w-64 shrink-0 flex flex-col min-h-0 border-r border-border bg-card p-4">
           <BuildingTree
             title="快速定位"
-            subtitle={`已选 ${selectedClassrooms.length} / ${allRoomIds.length} 教室`}
+            subtitle={`已选 ${selectedClassrooms.length} / ${maxDisplay}（最多${maxDisplay}个）`}
             selectedRoomIds={selectedClassrooms}
-            onRoomSelectionChange={setSelectedClassrooms}
+            onRoomSelectionChange={handleRoomSelectionChange}
             roomStatusMap={Object.fromEntries(
               Object.entries(mockClassroomStatus).map(([id, info]) => [id, info.status])
             )}
@@ -212,87 +241,22 @@ export default function MonitoringPage() {
           ) : (
             <div className={`grid ${gridClass} gap-4`}>
               {displayClassrooms.map((classroom) => (
-                <Card key={classroom.id} className="relative aspect-video bg-secondary/20 overflow-hidden group">
-                  <div className="absolute inset-0 bg-gradient-to-br from-secondary/50 to-muted/50 flex items-center justify-center">
-                    <Video className="h-16 w-16 text-muted-foreground/30" />
-                  </div>
-
-                  <div className="absolute top-3 left-3 flex flex-col gap-2">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="default" className="bg-black/50 backdrop-blur text-white border-0">
-                        {classroom.name}
-                      </Badge>
-                      {classroom.course && (
-                        <Badge variant="default" className="bg-blue-500/80 backdrop-blur text-white border-0">
-                          {classroom.course}
-                        </Badge>
-                      )}
-                    </div>
-                    {classroom.teacher && (
-                      <Badge variant="default" className="bg-black/50 backdrop-blur text-white border-0 w-fit">
-                        {classroom.teacher}
-                      </Badge>
-                    )}
-                  </div>
-
-                  <div className="absolute bottom-3 right-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {classroom.status === "in-class" && classroom.course && (
-                      <Button
-                        size="sm"
-                        variant="default"
-                        className="h-8 gap-1.5 px-2 bg-primary hover:bg-primary/90"
-                        onClick={() => openEvaluation(classroom)}
-                        title="听评课评分"
-                      >
-                        <ClipboardList className="h-4 w-4" />
-                        评分
-                      </Button>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="default"
-                      className="h-8 w-8 p-0 bg-black/50 backdrop-blur hover:bg-black/70"
-                      onClick={() => toggleAudio(classroom.id)}
-                    >
-                      {audioEnabled.has(classroom.id) ? (
-                        <Volume2 className="h-4 w-4" />
-                      ) : (
-                        <VolumeX className="h-4 w-4" />
-                      )}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="default"
-                      className="h-8 w-8 p-0 bg-black/50 backdrop-blur hover:bg-black/70"
-                    >
-                      <Maximize2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-
-                  <div className="absolute bottom-3 left-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button
-                      size="sm"
-                      variant={classroom.camera === "teacher" ? "default" : "ghost"}
-                      className="h-7 px-2 text-xs bg-black/50 backdrop-blur border-0"
-                    >
-                      教师
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={classroom.camera === "student" ? "default" : "ghost"}
-                      className="h-7 px-2 text-xs bg-black/50 backdrop-blur border-0"
-                    >
-                      学生
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={classroom.camera === "desktop" ? "default" : "ghost"}
-                      className="h-7 px-2 text-xs bg-black/50 backdrop-blur border-0"
-                    >
-                      桌面
-                    </Button>
-                  </div>
-                </Card>
+                <MonitorCard
+                  key={classroom.id}
+                  roomId={classroom.id}
+                  name={classroom.name}
+                  status={classroom.status}
+                  teacher={classroom.teacher}
+                  course={classroom.course}
+                  time={classroom.time}
+                  audioEnabled={audioEnabled.has(classroom.id)}
+                  onToggleAudio={() => toggleAudio(classroom.id)}
+                  onOpenEvaluation={
+                    classroom.status === "in-class" && classroom.course
+                      ? () => openEvaluation(classroom)
+                      : undefined
+                  }
+                />
               ))}
             </div>
           )}

@@ -1,6 +1,16 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import {
+  getTimetableNow,
+  getTimetableNum,
+  getTimetableList,
+  type TimetableNowVO,
+  type TimetableClassNumVO,
+  type TimetableDO,
+} from "@/lib/api/timetable"
+import { getLessonList, type LessonPageVO } from "@/lib/api/lesson"
+import { getCampusTree, type CampusBuildingFloorTreeVO } from "@/lib/api/campus"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -10,11 +20,9 @@ import {
   MapPin,
   User,
   BookOpen,
-  Power,
   Settings,
   Download,
   Upload,
-  Move,
   X,
   Check,
   ChevronRight,
@@ -22,6 +30,7 @@ import {
   Building,
   Layers,
   Monitor,
+  Loader2,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
@@ -44,50 +53,60 @@ type CourseData = {
   status?: "scheduled" | "in-class" | "completed"
 }
 
-// 教室树形结构数据
-const classroomStructure = [
-  {
-    campus: "主校区",
-    buildings: [
-      {
-        name: "教一楼",
-        floors: [
-          {
-            name: "一楼",
-            classrooms: ["109", "110", "501", "208", "209", "211"],
-          },
-          {
-            name: "二楼",
-            classrooms: ["212", "213", "214", "215"],
-          },
-        ],
-      },
-      {
-        name: "教二楼",
-        floors: [
-          {
-            name: "一楼",
-            classrooms: ["101", "102", "103"],
-          },
-        ],
-      },
-    ],
-  },
-  {
-    campus: "南校区",
-    buildings: [
-      {
-        name: "综合楼",
-        floors: [
-          {
-            name: "一楼",
-            classrooms: ["N101", "N102", "N103"],
-          },
-        ],
-      },
-    ],
-  },
-]
+const MAX_PERIODS = 20
+
+function timetableListToGrid(list: TimetableDO[] | null | undefined): Record<number, Record<number, CourseData | null>> {
+  const grid: Record<number, Record<number, CourseData | null>> = {}
+  for (let d = 0; d < 7; d++) {
+    grid[d] = {}
+    for (let p = 0; p < MAX_PERIODS; p++) grid[d][p] = null
+  }
+  if (!list || !Array.isArray(list)) return grid
+  for (const item of list) {
+    const dayIndex = item.weekday ? parseInt(item.weekday, 10) - 1 : 0
+    if (dayIndex < 0 || dayIndex > 6) continue
+    const lessonStrs = (item.lessons ?? "1").split(",").map((s) => s.trim())
+    const course: CourseData = {
+      id: item.id,
+      classroom: item.roomName ?? "",
+      course: item.courseName ?? "",
+      teacher: item.teacherName ?? "",
+      building: item.roomName ?? "",
+      status: "scheduled",
+    }
+    for (const ls of lessonStrs) {
+      const periodIndex = parseInt(ls, 10) - 1
+      if (periodIndex >= 0 && periodIndex < MAX_PERIODS) {
+        grid[dayIndex][periodIndex] = course
+      }
+    }
+  }
+  return grid
+}
+
+type ScheduleClassroomTree = {
+  campus: string
+  buildings: {
+    name: string
+    floors: {
+      name: string
+      rooms: { id: string; name: string }[]
+    }[]
+  }[]
+}
+
+function convertCampusToScheduleTree(data: CampusBuildingFloorTreeVO[]): ScheduleClassroomTree[] {
+  return (data ?? []).map((campus) => ({
+    campus: campus.name,
+    buildings: (campus.buildings ?? []).map((building) => ({
+      name: building.name,
+      floors: (building.floors ?? []).map((floor) => ({
+        name: floor.name,
+        rooms: (floor.rooms ?? []).map((room) => ({ id: room.id, name: room.name })),
+      })),
+    })),
+  }))
+}
 
 export default function ScheduleManagementPage() {
   const [linkageEnabled, setLinkageEnabled] = useState(true)
@@ -97,13 +116,86 @@ export default function ScheduleManagementPage() {
   const [selectedCourse, setSelectedCourse] = useState<CourseData | null>(null)
   const [targetDay, setTargetDay] = useState("")
   const [targetPeriod, setTargetPeriod] = useState("")
-  const currentWeek = 12
+  const [timetableNow, setTimetableNow] = useState<TimetableNowVO | null>(null)
+  const [timetableNum, setTimetableNum] = useState<TimetableClassNumVO | null>(null)
+  const [timetableList, setTimetableList] = useState<TimetableDO[] | null>(null)
+  const [lessonList, setLessonList] = useState<LessonPageVO[]>([])
 
-  // 树形菜单状态
-  const [expandedCampuses, setExpandedCampuses] = useState<Set<string>>(new Set(["主校区"]))
-  const [expandedBuildings, setExpandedBuildings] = useState<Set<string>>(new Set(["主校区-教一楼"]))
-  const [expandedFloors, setExpandedFloors] = useState<Set<string>>(new Set(["主校区-教一楼-一楼"]))
-  const [selectedClassroom, setSelectedClassroom] = useState<string | null>("109")
+  const [classroomStructure, setClassroomStructure] = useState<ScheduleClassroomTree[]>([])
+  const [roomIdToName, setRoomIdToName] = useState<Record<string, string>>({})
+  const [treeLoading, setTreeLoading] = useState(true)
+  const [expandedCampuses, setExpandedCampuses] = useState<Set<string>>(new Set())
+  const [expandedBuildings, setExpandedBuildings] = useState<Set<string>>(new Set())
+  const [expandedFloors, setExpandedFloors] = useState<Set<string>>(new Set())
+  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null)
+
+  useEffect(() => {
+    getTimetableNow()
+      .then(setTimetableNow)
+      .catch((err) => console.error("获取当前教学周失败:", err))
+  }, [])
+
+  useEffect(() => {
+    if (!timetableNow?.semesterId || timetableNow.week == null) return
+    getTimetableNum({
+      semesterId: timetableNow.semesterId,
+      week: String(timetableNow.week),
+      ...(selectedRoomId && { roomId: selectedRoomId }),
+    })
+      .then(setTimetableNum)
+      .catch((err) => console.error("获取课表数量失败:", err))
+  }, [timetableNow?.semesterId, timetableNow?.week, selectedRoomId])
+
+  useEffect(() => {
+    if (!timetableNow?.semesterId || timetableNow.week == null) return
+    getTimetableList({
+      semesterId: timetableNow.semesterId,
+      week: String(timetableNow.week),
+      ...(selectedRoomId && { roomId: selectedRoomId }),
+    })
+      .then(setTimetableList)
+      .catch((err) => console.error("获取课表列表失败:", err))
+  }, [timetableNow?.semesterId, timetableNow?.week, selectedRoomId])
+
+  useEffect(() => {
+    getLessonList({ pageSize: 2000, page: 1 })
+      .then(setLessonList)
+      .catch((err) => console.error("获取节次列表失败:", err))
+  }, [])
+
+  useEffect(() => {
+    setTreeLoading(true)
+    getCampusTree()
+      .then((data) => {
+        const tree = convertCampusToScheduleTree(data ?? [])
+        setClassroomStructure(tree)
+        const map: Record<string, string> = {}
+        tree.forEach((c) =>
+          c.buildings.forEach((b) =>
+            b.floors.forEach((f) => f.rooms.forEach((r) => (map[r.id] = r.name)))
+          )
+        )
+        setRoomIdToName(map)
+        if (tree.length > 0) {
+          const firstCampus = tree[0].campus
+          setExpandedCampuses(new Set([firstCampus]))
+          if (tree[0].buildings.length > 0) {
+            const firstBuilding = `${firstCampus}-${tree[0].buildings[0].name}`
+            setExpandedBuildings(new Set([firstBuilding]))
+            if (tree[0].buildings[0].floors.length > 0) {
+              const firstFloor = `${firstBuilding}-${tree[0].buildings[0].floors[0].name}`
+              setExpandedFloors(new Set([firstFloor]))
+              const firstRoom = tree[0].buildings[0].floors[0].rooms[0]
+              if (firstRoom) setSelectedRoomId(firstRoom.id)
+            }
+          }
+        }
+      })
+      .catch((err) => console.error("加载教室树失败:", err))
+      .finally(() => setTreeLoading(false))
+  }, [])
+
+  const currentWeek = timetableNow?.week ?? 0
 
   const toggleCampus = (campus: string) => {
     const newExpanded = new Set(expandedCampuses)
@@ -136,333 +228,29 @@ export default function ScheduleManagementPage() {
   }
 
   const weekDays = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
-  const periods = [
-    { id: 1, name: "第1节", time: "08:00-08:45" },
-    { id: 2, name: "第2节", time: "08:55-09:40" },
-    { id: 3, name: "第3节", time: "10:00-10:45" },
-    { id: 4, name: "第4节", time: "10:55-11:40" },
-    { id: 5, name: "第5节", time: "14:00-14:45" },
-    { id: 6, name: "第6节", time: "14:55-15:40" },
-    { id: 7, name: "第7节", time: "16:00-16:45" },
-    { id: 8, name: "第8节", time: "16:55-17:40" },
-    { id: 9, name: "第9节", time: "19:00-19:45" },
-    { id: 10, name: "第10节", time: "19:55-20:40" },
-    { id: 11, name: "第11节", time: "20:50-21:35" },
-    { id: 12, name: "第12节", time: "21:45-22:30" },
-  ]
+  const periods =
+    lessonList.length > 0
+      ? lessonList.map((l, i) => ({
+          id: parseInt(l.id, 10) || i + 1,
+          name: `第${i + 1}节`,
+          time: `${(l.startTime ?? "").slice(0, 5)}-${(l.endTime ?? "").slice(0, 5)}`,
+        }))
+      : [
+          { id: 1, name: "第1节", time: "—" },
+          { id: 2, name: "第2节", time: "—" },
+          { id: 3, name: "第3节", time: "—" },
+          { id: 4, name: "第4节", time: "—" },
+          { id: 5, name: "第5节", time: "—" },
+          { id: 6, name: "第6节", time: "—" },
+          { id: 7, name: "第7节", time: "—" },
+          { id: 8, name: "第8节", time: "—" },
+          { id: 9, name: "第9节", time: "—" },
+          { id: 10, name: "第10节", time: "—" },
+          { id: 11, name: "第11节", time: "—" },
+          { id: 12, name: "第12节", time: "—" },
+        ]
 
-  const [scheduleGrid, setScheduleGrid] = useState<Record<number, Record<number, CourseData | null>>>({
-    0: {
-      0: {
-        id: "1",
-        classroom: "101教室",
-        course: "高等数学",
-        teacher: "张老师",
-        building: "第一教学楼",
-        status: "completed",
-      },
-      1: {
-        id: "2",
-        classroom: "101教室",
-        course: "高等数学",
-        teacher: "张老师",
-        building: "第一教学楼",
-        status: "completed",
-      },
-      2: {
-        id: "3",
-        classroom: "102教室",
-        course: "大学英语",
-        teacher: "李老师",
-        building: "第一教学楼",
-        status: "in-class",
-      },
-      3: {
-        id: "4",
-        classroom: "102教室",
-        course: "大学英语",
-        teacher: "李老师",
-        building: "第一教学楼",
-        status: "in-class",
-      },
-      4: null,
-      5: null,
-      6: {
-        id: "5",
-        classroom: "201教室",
-        course: "Python编程",
-        teacher: "陈老师",
-        building: "实验楼",
-        status: "scheduled",
-      },
-      7: {
-        id: "6",
-        classroom: "201教室",
-        course: "Python编程",
-        teacher: "陈老师",
-        building: "实验楼",
-        status: "scheduled",
-      },
-      8: null,
-      9: null,
-      10: null,
-      11: null,
-    },
-    1: {
-      0: {
-        id: "7",
-        classroom: "103教室",
-        course: "数据结构",
-        teacher: "赵老师",
-        building: "第一教学楼",
-        status: "scheduled",
-      },
-      1: {
-        id: "8",
-        classroom: "103教室",
-        course: "数据结构",
-        teacher: "赵老师",
-        building: "第一教学楼",
-        status: "scheduled",
-      },
-      2: null,
-      3: null,
-      4: {
-        id: "9",
-        classroom: "201教室",
-        course: "计算机网络",
-        teacher: "王老师",
-        building: "实验楼",
-        status: "scheduled",
-      },
-      5: {
-        id: "10",
-        classroom: "201教室",
-        course: "计算机网络",
-        teacher: "王老师",
-        building: "实验楼",
-        status: "scheduled",
-      },
-      6: null,
-      7: null,
-      8: {
-        id: "11",
-        classroom: "301教室",
-        course: "操作系统",
-        teacher: "孙老师",
-        building: "第一教学楼",
-        status: "scheduled",
-      },
-      9: {
-        id: "12",
-        classroom: "301教室",
-        course: "操作系统",
-        teacher: "孙老师",
-        building: "第一教学楼",
-        status: "scheduled",
-      },
-      10: null,
-      11: null,
-    },
-    2: {
-      0: null,
-      1: null,
-      2: {
-        id: "13",
-        classroom: "102教室",
-        course: "线性代数",
-        teacher: "周老师",
-        building: "第一教学楼",
-        status: "scheduled",
-      },
-      3: {
-        id: "14",
-        classroom: "102教室",
-        course: "线性代数",
-        teacher: "周老师",
-        building: "第一教学楼",
-        status: "scheduled",
-      },
-      4: {
-        id: "15",
-        classroom: "203教室",
-        course: "数据库原理",
-        teacher: "吴老师",
-        building: "实验楼",
-        status: "scheduled",
-      },
-      5: {
-        id: "16",
-        classroom: "203教室",
-        course: "数据库原理",
-        teacher: "吴老师",
-        building: "实验楼",
-        status: "scheduled",
-      },
-      6: null,
-      7: null,
-      8: null,
-      9: null,
-      10: null,
-      11: null,
-    },
-    3: {
-      0: {
-        id: "17",
-        classroom: "104教室",
-        course: "大学物理",
-        teacher: "郑老师",
-        building: "第一教学楼",
-        status: "scheduled",
-      },
-      1: {
-        id: "18",
-        classroom: "104教室",
-        course: "大学物理",
-        teacher: "郑老师",
-        building: "第一教学楼",
-        status: "scheduled",
-      },
-      2: {
-        id: "19",
-        classroom: "201教室",
-        course: "软件工程",
-        teacher: "刘老师",
-        building: "实验楼",
-        status: "scheduled",
-      },
-      3: {
-        id: "20",
-        classroom: "201教室",
-        course: "软件工程",
-        teacher: "刘老师",
-        building: "实验楼",
-        status: "scheduled",
-      },
-      4: null,
-      5: null,
-      6: {
-        id: "21",
-        classroom: "105教室",
-        course: "概率论",
-        teacher: "钱老师",
-        building: "第一教学楼",
-        status: "scheduled",
-      },
-      7: {
-        id: "22",
-        classroom: "105教室",
-        course: "概率论",
-        teacher: "钱老师",
-        building: "第一教学楼",
-        status: "scheduled",
-      },
-      8: null,
-      9: null,
-      10: null,
-      11: null,
-    },
-    4: {
-      0: null,
-      1: null,
-      2: null,
-      3: null,
-      4: {
-        id: "23",
-        classroom: "202教室",
-        course: "人工智能",
-        teacher: "冯老师",
-        building: "实验楼",
-        status: "scheduled",
-      },
-      5: {
-        id: "24",
-        classroom: "202教室",
-        course: "人工智能",
-        teacher: "冯老师",
-        building: "实验楼",
-        status: "scheduled",
-      },
-      6: {
-        id: "25",
-        classroom: "106教室",
-        course: "大学英语",
-        teacher: "李老师",
-        building: "第一教学楼",
-        status: "scheduled",
-      },
-      7: {
-        id: "26",
-        classroom: "106教室",
-        course: "大学英语",
-        teacher: "李老师",
-        building: "第一教学楼",
-        status: "scheduled",
-      },
-      8: null,
-      9: null,
-      10: null,
-      11: null,
-    },
-    5: {
-      0: null,
-      1: null,
-      2: {
-        id: "27",
-        classroom: "301教室",
-        course: "机器学习",
-        teacher: "陈老师",
-        building: "实验楼",
-        status: "scheduled",
-      },
-      3: {
-        id: "28",
-        classroom: "301教室",
-        course: "机器学习",
-        teacher: "陈老师",
-        building: "实验楼",
-        status: "scheduled",
-      },
-      4: null,
-      5: null,
-      6: null,
-      7: null,
-      8: null,
-      9: null,
-      10: null,
-      11: null,
-    },
-    6: {
-      0: null,
-      1: null,
-      2: null,
-      3: null,
-      4: null,
-      5: null,
-      6: null,
-      7: null,
-      8: null,
-      9: null,
-      10: null,
-      11: null,
-    },
-  })
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "in-class":
-        return <Badge className="bg-blue-500">上课中</Badge>
-      case "completed":
-        return <Badge variant="secondary">已结束</Badge>
-      default:
-        return <Badge variant="outline">待上课</Badge>
-    }
-  }
-
-  const handleAdjustCourse = (course: CourseData, dayIndex: number, periodIndex: number) => {
-    setSelectedCourse(course)
-    setAdjustDialogOpen(true)
-  }
+  const scheduleGrid = timetableListToGrid(timetableList)
 
   const confirmAdjustment = () => {
     if (!selectedCourse || !targetDay || !targetPeriod) return
@@ -475,24 +263,11 @@ export default function ScheduleManagementPage() {
     setTargetPeriod("")
   }
 
-  const handleClassControl = (course: CourseData, action: "start" | "end") => {
-    console.log(`[v0] ${action === "start" ? "上课" : "下课"} - ${course.classroom} ${course.course}`)
-    // In real app, this would trigger device control
-  }
-
-  // Calculate stats
-  const totalCourses = Object.values(scheduleGrid).reduce((acc, day) => {
-    return acc + Object.values(day).filter((c) => c !== null).length
-  }, 0)
-  const inClassCount = Object.values(scheduleGrid).reduce((acc, day) => {
-    return acc + Object.values(day).filter((c) => c?.status === "in-class").length
-  }, 0)
-  const scheduledCount = Object.values(scheduleGrid).reduce((acc, day) => {
-    return acc + Object.values(day).filter((c) => c?.status === "scheduled").length
-  }, 0)
-  const completedCount = Object.values(scheduleGrid).reduce((acc, day) => {
-    return acc + Object.values(day).filter((c) => c?.status === "completed").length
-  }, 0)
+  // 统计数据来自接口 /common/timetable/num
+  const totalCourses = timetableNum?.all ?? 0
+  const inClassCount = timetableNum?.ing ?? 0
+  const scheduledCount = timetableNum?.will ?? 0
+  const completedCount = timetableNum?.over ?? 0
 
   return (
     <div className="flex h-[calc(100vh-4rem)]">
@@ -500,11 +275,18 @@ export default function ScheduleManagementPage() {
       <div className="w-64 border-r border-border bg-card flex flex-col flex-shrink-0">
         <div className="p-4 border-b border-border">
           <h3 className="font-semibold text-foreground">教室选择</h3>
-          <p className="text-xs text-muted-foreground mt-1">选择教室查看课表</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            {selectedRoomId ? `已选: ${roomIdToName[selectedRoomId] ?? selectedRoomId}` : "选择教室查看课表"}
+          </p>
         </div>
 
         <div className="flex-1 overflow-auto p-2">
-          {classroomStructure.map((campusData) => (
+          {treeLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            classroomStructure.map((campusData) => (
             <div key={campusData.campus} className="mb-1">
               {/* 校区层级 */}
               <button
@@ -563,18 +345,18 @@ export default function ScheduleManagementPage() {
                                   {expandedFloors.has(floorKey) && (
                                     <div className="ml-6 space-y-0.5">
                                       {/* 教室层级 */}
-                                      {floor.classrooms.map((classroom) => (
+                                      {floor.rooms.map((room) => (
                                         <button
-                                          key={classroom}
-                                          onClick={() => setSelectedClassroom(classroom)}
+                                          key={room.id}
+                                          onClick={() => setSelectedRoomId(room.id)}
                                           className={`flex items-center gap-2 w-full p-2 rounded-md text-sm transition-colors ${
-                                            selectedClassroom === classroom
+                                            selectedRoomId === room.id
                                               ? "bg-primary/10 text-primary"
                                               : "hover:bg-accent text-primary"
                                           }`}
                                         >
                                           <Monitor className="h-3 w-3" />
-                                          <span className="text-sm">{classroom}</span>
+                                          <span className="text-sm">{room.name}</span>
                                         </button>
                                       ))}
                                     </div>
@@ -590,7 +372,8 @@ export default function ScheduleManagementPage() {
                 </div>
               )}
             </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
 
@@ -625,9 +408,13 @@ export default function ScheduleManagementPage() {
             <Calendar className="h-5 w-5 text-blue-400" />
             <div>
               <div className="text-sm text-muted-foreground">当前教学周</div>
-              <div className="text-lg font-semibold text-foreground">第 {currentWeek} 周</div>
+              <div className="text-lg font-semibold text-foreground">
+                {timetableNow ? `第 ${currentWeek} 周` : "加载中..."}
+              </div>
             </div>
-            <div className="ml-4 text-sm text-muted-foreground">2024年9月 - 2025年1月</div>
+            <div className="ml-4 text-sm text-muted-foreground">
+              {timetableNow?.semesterName ?? "—"}
+            </div>
           </div>
           <div className="flex items-center gap-3">
             <div className="text-right">
@@ -732,52 +519,6 @@ export default function ScheduleManagementPage() {
                                   <span className="truncate">{course.classroom}</span>
                                 </div>
                               </div>
-                              {course.status && (
-                                <div className="ml-1 flex-shrink-0">
-                                  {course.status === "in-class" ? (
-                                    <Badge className="h-4 px-1 text-[10px] bg-blue-500">上课</Badge>
-                                  ) : course.status === "completed" ? (
-                                    <Badge variant="secondary" className="h-4 px-1 text-[10px]">
-                                      结束
-                                    </Badge>
-                                  ) : (
-                                    <Badge variant="outline" className="h-4 px-1 text-[10px]">
-                                      待上
-                                    </Badge>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-
-                            <div className="mt-1.5 flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-6 flex-1 text-[10px] bg-transparent px-1"
-                                onClick={() => handleClassControl(course, "start")}
-                                disabled={course.status === "completed" || course.status === "in-class"}
-                              >
-                                <Power className="mr-0.5 h-2.5 w-2.5" />
-                                上课
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-6 flex-1 text-[10px] bg-transparent px-1"
-                                onClick={() => handleClassControl(course, "end")}
-                                disabled={course.status !== "in-class"}
-                              >
-                                <Power className="mr-0.5 h-2.5 w-2.5" />
-                                下课
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-6 px-1.5 text-[10px]"
-                                onClick={() => handleAdjustCourse(course, dayIndex, periodIndex)}
-                              >
-                                <Move className="h-2.5 w-2.5" />
-                              </Button>
                             </div>
                           </div>
                         ) : (

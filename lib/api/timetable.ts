@@ -1,8 +1,49 @@
 /**
- * 课表管理 API
+ * 课表/教学周 API
  * /common/timetable
  */
 import { get, post } from "./client"
+
+// ---------- 当前教学周 ----------
+
+export interface WeekInfo {
+  semesterId: string
+  week: number
+  weekday: number
+  semesterName?: string
+  startDate?: string | null
+  endDate?: string | null
+  totalWeek?: number
+  academyYear?: string
+  semester?: string
+  [key: string]: unknown
+}
+
+export function getCurrentWeekInfo() {
+  return get<WeekInfo>("/common/timetable/now")
+}
+
+// ---------- 课表数量统计 ----------
+
+export interface TimetableNumDTO {
+  semesterId: string
+  week: string
+  roomId?: string
+  weekday?: number
+}
+
+export interface TimetableClassNumVO {
+  all: number
+  will: number
+  over: number
+  ing: number
+}
+
+export function getTimetableNum(params: TimetableNumDTO) {
+  return post<TimetableClassNumVO>("/common/timetable/num", params)
+}
+
+// ---------- 课表列表 ----------
 
 export interface TimetableDTO {
   semesterId?: string
@@ -38,19 +79,6 @@ export interface TimetableDO {
   updateTime: string
 }
 
-/** 查询课表列表 */
 export function getTimetableList(params: TimetableDTO) {
   return post<TimetableDO[]>("/common/timetable/list", params)
-}
-
-export interface WeekInfo {
-  semesterId: string
-  week: number
-  weekday: number
-  [key: string]: unknown
-}
-
-/** 获取当前学期/周信息 */
-export function getCurrentWeekInfo() {
-  return get<WeekInfo>("/common/timetable/now")
 }

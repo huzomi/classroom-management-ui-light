@@ -84,6 +84,20 @@ export function post<T>(url: string, body?: unknown): Promise<T> {
   })
 }
 
+export function put<T>(url: string, body?: unknown): Promise<T> {
+  return request<T>(url, {
+    method: "PUT",
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  })
+}
+
+export function del<T>(url: string, body?: unknown): Promise<T> {
+  return request<T>(url, {
+    method: "DELETE",
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  })
+}
+
 /** 获取 BASE_URL，供 auth 等模块使用 */
 export function getBaseUrl(): string {
   return BASE_URL
