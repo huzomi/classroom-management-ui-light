@@ -1,11 +1,18 @@
 /**
  * 统一 API 客户端
- * 基础地址通过 NEXT_PUBLIC_API_BASE_URL 配置
- * 开发环境: http://localhost:8201/jeecg-boot
- * 生产环境: http://127.0.0.1:8080/jeecg-boot
+ * 运行时根据浏览器当前 origin 动态拼接 API 地址
+ * 生产环境: {origin}/api/jeecg-boot
+ * 开发环境: 使用 NEXT_PUBLIC_API_BASE_URL 环境变量
  */
-const BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8201/jeecg-boot"
+
+function resolveBaseUrl(): string {
+  const envUrl = process.env.NEXT_PUBLIC_API_BASE_URL
+  if (envUrl) return envUrl
+  if (typeof window !== "undefined") {
+    return `${window.location.origin}/api/jeecg-boot`
+  }
+  return "http://localhost:8201/jeecg-boot"
+}
 
 export interface ApiResult<T> {
   success: boolean
@@ -39,7 +46,7 @@ async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
     headers["X-Access-Token"] = token
   }
 
-  const res = await fetch(`${BASE_URL}${url}`, {
+  const res = await fetch(`${resolveBaseUrl()}${url}`, {
     ...options,
     headers,
   })
@@ -98,7 +105,17 @@ export function del<T>(url: string, body?: unknown): Promise<T> {
   })
 }
 
-/** 获取 BASE_URL，供 auth 等模块使用 */
+/** 获取 BASE_URL，供 auth、导出等模块使用 */
 export function getBaseUrl(): string {
-  return BASE_URL
+  return resolveBaseUrl()
+}
+
+/** 获取流媒体 BASE_URL */
+export function getStreamBaseUrl(): string {
+  const envUrl = process.env.NEXT_PUBLIC_STREAM_BASE_URL
+  if (envUrl) return envUrl
+  if (typeof window !== "undefined") {
+    return `${window.location.origin}/api`
+  }
+  return "http://localhost:8200"
 }

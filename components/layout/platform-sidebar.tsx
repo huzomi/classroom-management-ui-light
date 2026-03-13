@@ -14,6 +14,8 @@ import {
   Wrench,
   Database,
   ChevronDown,
+  PanelLeftClose,
+  PanelLeft,
 } from "lucide-react"
 import { useState } from "react"
 import { useSidebar } from "./sidebar-context"
@@ -110,8 +112,8 @@ export function PlatformSidebar() {
         )}
       >
         {/* Header */}
-        <div className="flex h-14 items-center border-b border-sidebar-border px-4 overflow-hidden">
-          <Link href="/" className="flex items-center gap-2 overflow-hidden">
+        <div className="flex h-14 items-center justify-between border-b border-sidebar-border px-4 overflow-hidden">
+          <Link href="/" className="flex items-center gap-2 overflow-hidden min-w-0">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary flex-shrink-0">
               <LayoutGrid className="h-5 w-5 text-primary-foreground" />
             </div>
@@ -124,6 +126,15 @@ export function PlatformSidebar() {
               智慧运维
             </span>
           </Link>
+          <button
+            onClick={toggleSidebar}
+            className={cn(
+              "flex-shrink-0 rounded-md p-1 text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+              isCollapsed && "hidden"
+            )}
+          >
+            <PanelLeftClose className="h-4 w-4" />
+          </button>
         </div>
 
         {/* Navigation */}
@@ -259,6 +270,21 @@ export function PlatformSidebar() {
           })}
         </nav>
 
+        {isCollapsed && (
+          <div className="border-t border-sidebar-border p-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={toggleSidebar}
+                  className="flex w-full items-center justify-center rounded-lg p-2 text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                >
+                  <PanelLeft className="h-5 w-5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">展开侧栏</TooltipContent>
+            </Tooltip>
+          </div>
+        )}
         </div>
     </TooltipProvider>
   )

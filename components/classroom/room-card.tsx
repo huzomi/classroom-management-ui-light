@@ -77,8 +77,8 @@ interface RoomCardProps {
 const usageStatusConfig: Record<UsageStatus, { label: string; borderColor: string; bgColor: string }> = {
   teaching: {
     label: "上课",
-    borderColor: "border-l-primary",
-    bgColor: "bg-primary/5",
+    borderColor: "border-l-success",
+    bgColor: "bg-success-light",
   },
   idle: {
     label: "空闲",
@@ -157,7 +157,7 @@ export function RoomCard({
           <span className={cn(
             "inline-block rounded px-2 py-0.5 text-xs font-medium",
             usageStatus.bgColor,
-            room.usageStatus === "teaching" && "text-primary",
+            room.usageStatus === "teaching" && "text-success",
             room.usageStatus === "idle" && "text-muted-foreground",
             room.usageStatus === "self-study" && "text-chart-2",
             room.usageStatus === "exam" && "text-chart-3",
@@ -195,7 +195,7 @@ export function RoomCard({
         <div className="flex w-48 shrink-0 items-center gap-3">
           <div className="flex items-center gap-1">
             {room.iotInfo.controller === "online" ? (
-              <Wifi className="h-4 w-4 text-primary" />
+              <Wifi className="h-4 w-4 text-success" />
             ) : (
               <WifiOff className="h-4 w-4 text-destructive" />
             )}
@@ -269,7 +269,7 @@ export function RoomCard({
           <span className={cn(
             "rounded px-2 py-0.5 text-xs font-medium",
             usageStatus.bgColor,
-            room.usageStatus === "teaching" && "text-primary",
+            room.usageStatus === "teaching" && "text-success",
             room.usageStatus === "idle" && "text-muted-foreground",
             room.usageStatus === "self-study" && "text-chart-2",
             room.usageStatus === "exam" && "text-chart-3",
@@ -308,7 +308,7 @@ export function RoomCard({
       <div className="mt-2 flex h-5 shrink-0 items-center gap-4 text-sm">
         <div className="flex items-center gap-1.5">
           {room.iotInfo.controller === "online" ? (
-            <Wifi className="h-4 w-4 text-primary" />
+            <Wifi className="h-4 w-4 text-success" />
           ) : (
             <WifiOff className="h-4 w-4 text-destructive" />
           )}

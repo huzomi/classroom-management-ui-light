@@ -180,7 +180,7 @@ export default function TaskManagementPage() {
         {/* 统计卡片 */}
         <div className="grid grid-cols-4 gap-4">
           <div className="flex items-center gap-4 rounded-lg border border-border bg-card p-6 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-md">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-sky-400 text-white shadow-md">
               <FileText className="h-7 w-7" />
             </div>
             <div>
@@ -207,12 +207,12 @@ export default function TaskManagementPage() {
             </div>
           </div>
           <div className="flex items-center gap-4 rounded-lg border border-border bg-card p-6 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-sky-400 text-white shadow-md">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-gray-400 to-gray-500 text-white shadow-md">
               <Calendar className="h-7 w-7" />
             </div>
             <div>
               <div className="text-sm text-muted-foreground">需要执行</div>
-              <div className="text-2xl font-bold text-blue-600">{statistics?.today ?? "—"}</div>
+              <div className="text-2xl font-bold text-muted-foreground">{statistics?.today ?? "—"}</div>
             </div>
           </div>
         </div>
@@ -257,7 +257,7 @@ export default function TaskManagementPage() {
                   key={task.id}
                   className={cn(
                     "flex items-start gap-4 rounded-lg border border-border bg-card p-4 transition-all hover:shadow-md hover:-translate-y-0.5",
-                    taskMode(task) === "auto" && "border-l-4 border-l-purple-500",
+                    taskMode(task) === "auto" && "border-l-4 border-l-blue-500",
                     taskMode(task) === "manual" && "border-l-4 border-l-orange-500"
                   )}
                 >
@@ -265,7 +265,7 @@ export default function TaskManagementPage() {
                     className={cn(
                       "flex h-14 w-14 shrink-0 items-center justify-center rounded-lg shadow-md",
                       taskMode(task) === "auto"
-                        ? "bg-gradient-to-br from-purple-400 to-purple-600 text-white"
+                        ? "bg-gradient-to-br from-blue-400 to-blue-600 text-white"
                         : "bg-gradient-to-br from-orange-400 to-orange-600 text-white"
                     )}
                   >
@@ -289,7 +289,7 @@ export default function TaskManagementPage() {
                       )}
                       <Badge
                         variant="outline"
-                        className={taskMode(task) === "auto" ? "border-purple-500/50 text-purple-600" : "border-orange-500/50 text-orange-600"}
+                        className={taskMode(task) === "auto" ? "border-blue-500/50 text-blue-600" : "border-orange-500/50 text-orange-600"}
                       >
                         {taskMode(task) === "auto" ? "自动任务" : "手动任务"}
                       </Badge>

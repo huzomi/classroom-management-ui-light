@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { Bell, HelpCircle, LogOut, PanelLeftClose, PanelLeft } from "lucide-react"
+import { Bell, HelpCircle, LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -12,29 +12,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { useSidebar } from "./sidebar-context"
 import { logout } from "@/lib/api/auth"
 
 export function PlatformHeader() {
   const router = useRouter()
-  const { isCollapsed, toggleSidebar } = useSidebar()
 
   return (
-    <header className="flex h-14 items-center justify-between border-b border-border bg-card px-6">
-      <div className="flex items-center gap-4">
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={toggleSidebar}
-          className="h-8 w-8"
-        >
-          {isCollapsed ? (
-            <PanelLeft className="h-5 w-5" />
-          ) : (
-            <PanelLeftClose className="h-5 w-5" />
-          )}
-        </Button>
-      </div>
+    <header className="flex h-14 items-center justify-end border-b border-border bg-card px-6">
 
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" className="relative">

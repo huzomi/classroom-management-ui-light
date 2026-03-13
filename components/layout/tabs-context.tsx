@@ -54,13 +54,15 @@ const TabsContext = createContext<TabsContextType | undefined>(undefined)
 
 const DEFAULT_TABS: Tab[] = [{ path: "/", title: "首页", closable: false }]
 
+const AUTH_PATHS = ["/login"]
+
 function loadTabsFromStorage(): Tab[] {
   try {
     const stored = localStorage.getItem(TABS_STORAGE_KEY)
     if (stored) {
       const parsed = JSON.parse(stored) as Tab[]
       if (Array.isArray(parsed) && parsed.length > 0 && parsed.some((t) => t.path === "/")) {
-        return parsed
+        return parsed.filter((t) => !AUTH_PATHS.some((a) => t.path.startsWith(a)))
       }
     }
   } catch {
@@ -148,8 +150,10 @@ export function TabsProvider({ children }: { children: ReactNode }) {
 
   // 监听路由变化，自动添加标签并同步激活状态
   // 子路径（如 /classroom-management/a101）不创建新标签，归属父级菜单
+  // 登录等认证页面不创建标签
   useEffect(() => {
     if (!pathname || !isHydrated) return
+    if (pathname.startsWith("/login")) return
     const parentPath = Object.keys(menuConfig).find(
       (p) => p !== "/" && pathname.startsWith(p + "/")
     )
