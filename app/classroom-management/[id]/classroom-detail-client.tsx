@@ -252,7 +252,7 @@ export function ClassroomDetailClient({ id }: { id: string }) {
 
         <div className="grid flex-1 min-h-0 grid-cols-[2fr_1fr] gap-3">
           <div className="flex min-w-0 min-h-0 h-full flex-col overflow-hidden">
-            <CameraPreview />
+            <CameraPreview roomId={id} />
           </div>
 
           <div className="flex min-w-0 flex-col min-h-0 rounded-xl border border-border bg-card overflow-hidden">

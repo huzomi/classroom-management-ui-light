@@ -81,3 +81,9 @@ export interface PatrolDetailVO {
 export function getPatrolDetail(patrolId: string) {
   return get<PatrolDetailVO>("/patrolDetail/detail", { patrolId })
 }
+
+// --- 立即巡检 ---
+
+export function patrolCheck(roomIds?: string[]) {
+  return post<string>("/patrolDetail/check", roomIds ? { roomIds } : {})
+}

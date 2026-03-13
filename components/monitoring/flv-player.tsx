@@ -70,7 +70,7 @@ export function FlvPlayer({ url, muted = true, autoPlay = true, className = "" }
   if (!url) {
     return (
       <div
-        className={`flex items-center justify-center bg-muted/30 ${className}`}
+        className={`flex items-center justify-center bg-black ${className}`}
       >
         <div className="text-center text-muted-foreground">
           <Video className="h-12 w-12 mx-auto mb-2 opacity-30" />
@@ -83,7 +83,7 @@ export function FlvPlayer({ url, muted = true, autoPlay = true, className = "" }
   if (error) {
     return (
       <div
-        className={`flex items-center justify-center bg-muted/30 ${className}`}
+        className={`flex items-center justify-center bg-black ${className}`}
       >
         <div className="text-center text-muted-foreground">
           <Video className="h-12 w-12 mx-auto mb-2 opacity-30" />

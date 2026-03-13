@@ -23,6 +23,9 @@ export function getCurrentWeekInfo() {
   return get<WeekInfo>("/common/timetable/now")
 }
 
+export type TimetableNowVO = WeekInfo
+export const getTimetableNow = getCurrentWeekInfo
+
 // ---------- 课表数量统计 ----------
 
 export interface TimetableNumDTO {

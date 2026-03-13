@@ -11,6 +11,7 @@ import {
   CARD_RESULT_MAP,
   type PayCardLogPageVO,
 } from "@/lib/api/pay-card-log"
+import { getBaseUrl } from "@/lib/api/client"
 
 export default function CardLogsPage() {
   const [searchCardNo, setSearchCardNo] = useState("")
@@ -118,7 +119,10 @@ export default function CardLogsPage() {
         {/* 工具栏 */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Button>
+            <Button onClick={() => {
+              const token = localStorage.getItem("token") ?? ""
+              window.open(`${getBaseUrl()}/payCardLog/exportXls?token=${token}`)
+            }}>
               <Download className="h-4 w-4 mr-1" />
               导出
             </Button>

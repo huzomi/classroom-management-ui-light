@@ -33,7 +33,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
-import { getPatrolCalendar, getPatrolRecord, getPatrolDetail, type PatrolDetailPageVO, type PatrolDetailVO } from "@/lib/api/patrol"
+import { getPatrolCalendar, getPatrolRecord, getPatrolDetail, patrolCheck, type PatrolDetailPageVO, type PatrolDetailVO } from "@/lib/api/patrol"
+import { toast } from "@/hooks/use-toast"
 
 function formatDateTime(s: string | null | undefined): string {
   if (!s) return "-"
@@ -72,6 +73,22 @@ export default function InspectionPage() {
   // AI 快照大图预览
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewUrl, setPreviewUrl] = useState("")
+
+  const [checking, setChecking] = useState(false)
+
+  const handlePatrolCheck = async () => {
+    setChecking(true)
+    try {
+      await patrolCheck()
+      toast({ title: "巡检指令已发送" })
+      // 刷新记录列表
+      setRecordPage(1)
+    } catch {
+      toast({ title: "巡检指令发送失败", description: "请稍后重试", variant: "destructive" })
+    } finally {
+      setChecking(false)
+    }
+  }
 
   const handleViewDetail = async (patrolId: string) => {
     setDetailOpen(true)
@@ -225,7 +242,7 @@ export default function InspectionPage() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">教室总数(间)</p>
-                <p className="text-3xl font-bold text-foreground">19</p>
+                <p className="text-3xl font-bold text-foreground">{recordSummary.totalRoomCount}</p>
               </div>
             </CardContent>
           </Card>
@@ -237,7 +254,7 @@ export default function InspectionPage() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">发现异常(处)</p>
-                <p className="text-3xl font-bold text-foreground">1</p>
+                <p className="text-3xl font-bold text-foreground">{recordSummary.abnormalCount}</p>
               </div>
             </CardContent>
           </Card>
@@ -409,7 +426,9 @@ export default function InspectionPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button className="bg-primary hover:bg-primary/90">立即巡检</Button>
+                  <Button className="bg-primary hover:bg-primary/90" onClick={handlePatrolCheck} disabled={checking}>
+                    {checking ? "巡检中..." : "立即巡检"}
+                  </Button>
                   <Button variant="outline">
                     <Download className="h-4 w-4 mr-1" />
                     导出

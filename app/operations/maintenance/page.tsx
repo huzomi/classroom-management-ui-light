@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Download, Plus, Search, RefreshCw, Wrench, Settings, ChevronUp, ChevronDown, Info, Trash2 } from "lucide-react"
+import { Plus, Search, RefreshCw, Wrench, Settings, ChevronUp, ChevronDown, Info, Trash2 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -392,10 +392,6 @@ export default function MaintenancePage() {
                 批量删除
               </Button>
             )}
-            <Button variant="outline">
-              <Download className="h-4 w-4 mr-1" />
-              导出
-            </Button>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon">

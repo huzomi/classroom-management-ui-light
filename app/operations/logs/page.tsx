@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Download, Search, RefreshCw, ChevronUp, ChevronDown, Info, ChevronLeft, ChevronRight } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
+import { getBaseUrl } from "@/lib/api/client"
 import {
   getOperationLogPage,
   ACTION_TYPE_MAP,
@@ -108,7 +109,10 @@ export default function OperationLogsPage() {
         {/* 工具栏 */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Button>
+            <Button onClick={() => {
+              const token = localStorage.getItem("token") ?? ""
+              window.open(`${getBaseUrl()}/operationLog/exportXls?token=${token}`)
+            }}>
               <Download className="h-4 w-4 mr-1" />
               导出
             </Button>

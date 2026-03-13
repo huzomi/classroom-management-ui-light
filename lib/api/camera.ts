@@ -59,7 +59,7 @@ export function getFullStreamUrl(relativeUrl: string): string {
     streamBase = envStream
   } else {
     const apiBase = getBaseUrl()
-    streamBase = apiBase.replace(/\/jeecgboot\/?$/, "")
+    streamBase = apiBase.replace(/\/jeecg-boot\/?$/, "")
   }
   const base = streamBase.replace(/\/$/, "")
   const path = relativeUrl.startsWith("/") ? relativeUrl : `/${relativeUrl}`
