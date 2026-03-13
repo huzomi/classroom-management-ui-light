@@ -1,10 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
-import { BuildingTree, allRoomIds } from "@/components/classroom/building-tree"
+import { BuildingTree, getAllRoomIds, type TreeNode } from "@/components/classroom/building-tree"
 
 import {
   LayoutGrid,
@@ -52,6 +52,11 @@ export default function MonitoringPage() {
   const [autoRotate, setAutoRotate] = useState(false)
   const [evaluationOpen, setEvaluationOpen] = useState(false)
   const [evaluationCourse, setEvaluationCourse] = useState<CourseInfo | null>(null)
+  const [allRoomIds, setAllRoomIds] = useState<string[]>([])
+
+  const handleTreeLoaded = useCallback((tree: TreeNode[]) => {
+    setAllRoomIds(getAllRoomIds(tree))
+  }, [])
 
   const openEvaluation = (classroom: (typeof mockClassroomStatus)[string] & { id: string }) => {
     if (classroom.status !== "in-class" || !classroom.course || !classroom.teacher) return
@@ -99,6 +104,7 @@ export default function MonitoringPage() {
             roomStatusMap={Object.fromEntries(
               Object.entries(mockClassroomStatus).map(([id, info]) => [id, info.status])
             )}
+            onTreeLoaded={handleTreeLoaded}
           />
         </div>
       )}

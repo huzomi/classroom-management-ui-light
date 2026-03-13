@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -18,6 +18,8 @@ import {
 } from "@/components/ui/form"
 import { GraphicalCaptcha } from "@/components/auth/graphical-captcha"
 import { Monitor } from "lucide-react"
+import { login } from "@/lib/api/auth"
+import { ApiError } from "@/lib/api/client"
 
 const loginSchema = z.object({
   username: z.string().min(1, "请输入用户名"),
@@ -29,7 +31,9 @@ type LoginFormValues = z.infer<typeof loginSchema>
 
 export default function LoginPage() {
   const router = useRouter()
-  const [captchaCode, setCaptchaCode] = useState("")
+  const [checkKey, setCheckKey] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [errorMsg, setErrorMsg] = useState("")
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -40,20 +44,34 @@ export default function LoginPage() {
     },
   })
 
-  const validateCaptcha = (value: string) => {
-    if (!captchaCode) return "验证码已过期，请刷新"
-    if (value.toUpperCase() !== captchaCode.toUpperCase()) return "验证码错误"
-    return true
-  }
+  const handleCaptchaRefresh = useCallback(() => {
+    form.setValue("captcha", "")
+    form.clearErrors("captcha")
+  }, [form])
 
-  const onSubmit = (data: LoginFormValues) => {
-    const captchaValid = validateCaptcha(data.captcha)
-    if (captchaValid !== true) {
-      form.setError("captcha", { message: captchaValid })
+  const onSubmit = async (data: LoginFormValues) => {
+    if (!checkKey) {
+      form.setError("captcha", { message: "验证码已过期，请点击刷新" })
       return
     }
-    // TODO: 调用登录 API
-    router.push("/classroom-management")
+    setLoading(true)
+    setErrorMsg("")
+    try {
+      await login({
+        username: data.username,
+        password: data.password,
+        captcha: data.captcha.trim(),
+        checkKey,
+      })
+      router.push("/dashboard")
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : "登录失败，请重试"
+      setErrorMsg(message)
+      form.setError("captcha", { message: "验证码错误或已过期，请刷新后重试" })
+      form.setValue("captcha", "")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -69,6 +87,11 @@ export default function LoginPage() {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              {errorMsg && (
+                <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {errorMsg}
+                </div>
+              )}
               <FormField
                 control={form.control}
                 name="username"
@@ -111,26 +134,27 @@ export default function LoginPage() {
                         <Input
                           placeholder="请输入验证码"
                           autoComplete="off"
-                          className="flex-1 uppercase"
+                          className="flex-1"
                           maxLength={6}
                           {...field}
                           onChange={(e) => {
                             field.onChange(e.target.value)
                             form.clearErrors("captcha")
+                            setErrorMsg("")
                           }}
                         />
                       </FormControl>
                       <GraphicalCaptcha
-                        onChange={setCaptchaCode}
-                        onRefresh={() => form.setValue("captcha", "")}
+                        onCheckKeyChange={setCheckKey}
+                        onRefresh={handleCaptchaRefresh}
                       />
                     </div>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full" size="lg">
-                登录
+              <Button type="submit" className="w-full" size="lg" disabled={loading}>
+                {loading ? "登录中..." : "登录"}
               </Button>
             </form>
           </Form>

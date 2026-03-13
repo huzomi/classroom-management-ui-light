@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { Bell, HelpCircle, PanelLeftClose, PanelLeft } from "lucide-react"
+import { Bell, HelpCircle, LogOut, PanelLeftClose, PanelLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { useSidebar } from "./sidebar-context"
+import { logout } from "@/lib/api/auth"
 
 export function PlatformHeader() {
   const router = useRouter()
@@ -60,7 +61,15 @@ export function PlatformHeader() {
             <DropdownMenuItem>个人资料</DropdownMenuItem>
             <DropdownMenuItem>系统设置</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => router.push("/login")}>退出登录</DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={async () => {
+                await logout()
+                router.push("/login")
+              }}
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              退出登录
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

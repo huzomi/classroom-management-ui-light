@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { BuildingTree, TreeNode, treeData } from "@/components/classroom/building-tree"
+import { BuildingTree, type TreeNode } from "@/components/classroom/building-tree"
 import { RoomCard, RoomData, RoomStatus } from "@/components/classroom/room-card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -22,7 +22,10 @@ import { fetchClassrooms } from "@/lib/api/classroom"
 type ViewMode = "list" | "card"
 type StatusFilter = "all" | RoomStatus
 
-function getFilterFromNode(nodeId: string | null): { building?: string; floor?: string } {
+function getFilterFromNode(
+  treeData: TreeNode[],
+  nodeId: string | null
+): { building?: string; floor?: string } {
   if (!nodeId) return {}
 
   const findNode = (
@@ -55,7 +58,8 @@ function getFilterFromNode(nodeId: string | null): { building?: string; floor?: 
 }
 
 export default function ClassroomManagementPage() {
-  const [selectedNode, setSelectedNode] = useState<string | null>("building-a")
+  const [treeData, setTreeData] = useState<TreeNode[]>([])
+  const [selectedNode, setSelectedNode] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>("list")
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all")
   const [selectedRooms, setSelectedRooms] = useState<string[]>([])
@@ -63,7 +67,7 @@ export default function ClassroomManagementPage() {
   const [rooms, setRooms] = useState<RoomData[]>([])
   const [loading, setLoading] = useState(true)
 
-  const treeFilter = getFilterFromNode(selectedNode)
+  const treeFilter = getFilterFromNode(treeData, selectedNode)
 
   useEffect(() => {
     setLoading(true)
@@ -114,6 +118,7 @@ export default function ClassroomManagementPage() {
         <BuildingTree
           selectedNode={selectedNode}
           onSelectNode={(node) => setSelectedNode(node.id)}
+          onTreeLoaded={setTreeData}
         />
       </div>
 

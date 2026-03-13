@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import {
@@ -9,7 +9,10 @@ import {
   Layers,
   School,
   MapPin,
+  Loader2,
 } from "lucide-react"
+import { getCampusTree } from "@/lib/api/campus"
+import type { CampusBuildingFloorTreeVO } from "@/lib/api/campus"
 
 export interface TreeNode {
   id: string
@@ -17,111 +20,37 @@ export interface TreeNode {
   type: "campus" | "building" | "floor" | "room"
   children?: TreeNode[]
   roomCount?: number
-  roomId?: string // 用于教室节点关联实际教室ID
+  roomId?: string
 }
 
-export const treeData: TreeNode[] = [
-  {
-    id: "campus-1",
-    name: "主校区",
-    type: "campus",
-    children: [
-      {
-        id: "building-a",
-        name: "教学楼A",
-        type: "building",
-        roomCount: 48,
-        children: [
-          {
-            id: "floor-a1",
-            name: "1楼",
-            type: "floor",
-            roomCount: 12,
-            children: [
-              { id: "room-a101", name: "A101", type: "room", roomId: "a101" },
-              { id: "room-a102", name: "A102", type: "room", roomId: "a102" },
-              { id: "room-a103", name: "A103", type: "room", roomId: "a103" },
-            ],
-          },
-          {
-            id: "floor-a2",
-            name: "2楼",
-            type: "floor",
-            roomCount: 12,
-            children: [
-              { id: "room-a201", name: "A201", type: "room", roomId: "a201" },
-              { id: "room-a202", name: "A202", type: "room", roomId: "a202" },
-              { id: "room-a203", name: "A203", type: "room", roomId: "a203" },
-            ],
-          },
-          {
-            id: "floor-a3",
-            name: "3楼",
-            type: "floor",
-            roomCount: 12,
-          },
-          {
-            id: "floor-a4",
-            name: "4楼",
-            type: "floor",
-            roomCount: 12,
-          },
-        ],
-      },
-      {
-        id: "building-b",
-        name: "教学楼B",
-        type: "building",
-        roomCount: 36,
-        children: [
-          {
-            id: "floor-b1",
-            name: "1楼",
-            type: "floor",
-            roomCount: 12,
-            children: [
-              { id: "room-b101", name: "B101", type: "room", roomId: "b101" },
-              { id: "room-b102", name: "B102", type: "room", roomId: "b102" },
-            ],
-          },
-          { id: "floor-b2", name: "2楼", type: "floor", roomCount: 12 },
-          { id: "floor-b3", name: "3楼", type: "floor", roomCount: 12 },
-        ],
-      },
-      {
-        id: "building-exp",
-        name: "实验楼",
-        type: "building",
-        roomCount: 24,
-      },
-      {
-        id: "building-lib",
-        name: "图书馆",
-        type: "building",
-        roomCount: 16,
-      },
-    ],
-  },
-  {
-    id: "campus-2",
-    name: "南校区",
-    type: "campus",
-    children: [
-      {
-        id: "building-c",
-        name: "教学楼C",
-        type: "building",
-        roomCount: 32,
-      },
-      {
-        id: "building-d",
-        name: "教学楼D",
-        type: "building",
-        roomCount: 28,
-      },
-    ],
-  },
-]
+function convertApiTree(data: CampusBuildingFloorTreeVO[]): TreeNode[] {
+  return data.map((campus) => ({
+    id: campus.id,
+    name: campus.name,
+    type: "campus" as const,
+    children: campus.buildings?.map((building) => ({
+      id: building.id,
+      name: building.name,
+      type: "building" as const,
+      roomCount: building.floors?.reduce(
+        (sum, f) => sum + (f.rooms?.length ?? 0),
+        0
+      ),
+      children: building.floors?.map((floor) => ({
+        id: floor.id,
+        name: floor.name,
+        type: "floor" as const,
+        roomCount: floor.rooms?.length ?? 0,
+        children: floor.rooms?.map((room) => ({
+          id: `room-${room.id}`,
+          name: room.name,
+          type: "room" as const,
+          roomId: room.id,
+        })),
+      })),
+    })),
+  }))
+}
 
 /** 从树数据中收集所有教室 roomId */
 export function getAllRoomIds(nodes: TreeNode[]): string[] {
@@ -136,23 +65,17 @@ export function getAllRoomIds(nodes: TreeNode[]): string[] {
   return ids
 }
 
-/** 所有教室 ID 列表（便捷导出） */
-export const allRoomIds = getAllRoomIds(treeData)
-
 interface BuildingTreeProps {
   selectedNode?: string | null
   onSelectNode?: (node: TreeNode) => void
   onRoomClick?: (roomId: string) => void
-  /** 多选模式下已选中的教室 ID 列表（用于监控页快速定位） */
   selectedRoomIds?: string[]
-  /** 多选模式下教室选择变化回调（与 selectedRoomIds 配合使用） */
   onRoomSelectionChange?: (ids: string[]) => void
-  /** 自定义标题，默认「空间架构」 */
   title?: string
-  /** 自定义副标题，默认「386 教室」 */
   subtitle?: string
-  /** 教室状态映射，用于在树节点显示状态徽章（如监控页的「上课」「故障」） */
   roomStatusMap?: Record<string, string>
+  /** 树加载完成回调（用于监控页获取 allRoomIds） */
+  onTreeLoaded?: (tree: TreeNode[]) => void
 }
 
 export function BuildingTree({
@@ -162,14 +85,35 @@ export function BuildingTree({
   selectedRoomIds,
   onRoomSelectionChange,
   title = "空间架构",
-  subtitle = "386 教室",
+  subtitle,
   roomStatusMap,
+  onTreeLoaded,
 }: BuildingTreeProps) {
   const router = useRouter()
-  const [expandedNodes, setExpandedNodes] = useState<string[]>([
-    "campus-1",
-    "building-a",
-  ])
+  const [treeData, setTreeData] = useState<TreeNode[]>([])
+  const [loading, setLoading] = useState(true)
+  const [expandedNodes, setExpandedNodes] = useState<string[]>([])
+
+  useEffect(() => {
+    setLoading(true)
+    getCampusTree()
+      .then((data) => {
+        const tree = convertApiTree(data ?? [])
+        setTreeData(tree)
+        if (tree.length > 0) {
+          setExpandedNodes([tree[0].id])
+        }
+        onTreeLoaded?.(tree)
+      })
+      .catch((err) => {
+        console.error("加载空间架构失败:", err)
+        setTreeData([])
+      })
+      .finally(() => setLoading(false))
+  }, [onTreeLoaded])
+
+  const allRoomIds = getAllRoomIds(treeData)
+  const displaySubtitle = subtitle ?? `${allRoomIds.length} 教室`
 
   const toggleNode = (id: string) => {
     setExpandedNodes((prev) =>
@@ -298,11 +242,19 @@ export function BuildingTree({
 
   const isMonitoringMode = Boolean(onRoomSelectionChange && selectedRoomIds)
 
+  if (loading) {
+    return (
+      <div className="flex h-32 items-center justify-center">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
   return (
     <div className="h-full overflow-auto">
       <div className="mb-3 flex items-center justify-between px-2">
-        <h3 className="text-sm font-medium text-foreground">{title}</h3>
-        <span className="text-xs text-muted-foreground">{subtitle}</span>
+        <h3 className="font-semibold text-foreground">{title}</h3>
+        <span className="text-xs text-muted-foreground">{displaySubtitle}</span>
       </div>
       {isMonitoringMode && (
         <div className="mb-2 px-2">
