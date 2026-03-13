@@ -128,8 +128,10 @@ export function MenuTable({
 
   const renderIcon = (iconName?: string) => {
     if (!iconName) return null
-    const IconComponent = iconMap[iconName]
-    if (!IconComponent) return null
+    // 支持 ant-design:xxx 格式，取最后一段匹配
+    const key = iconName.includes(":") ? iconName.split(":").pop()?.replace(/-outlined$/, "") ?? iconName : iconName
+    const IconComponent = iconMap[key] ?? iconMap[iconName]
+    if (!IconComponent) return <span className="size-4 inline-block text-muted-foreground/50">◆</span>
     return <IconComponent className="size-4 text-muted-foreground" />
   }
 
@@ -145,12 +147,13 @@ export function MenuTable({
               className={cn(isSomeSelected && "opacity-50")}
             />
           </TableHead>
-          <TableHead className="min-w-[280px]">菜单名称</TableHead>
-          <TableHead className="w-[120px] text-center">菜单类型</TableHead>
-          <TableHead className="w-[80px] text-center">图标</TableHead>
-          <TableHead className="min-w-[200px]">组件</TableHead>
-          <TableHead className="min-w-[180px]">路径</TableHead>
-          <TableHead className="w-[80px] text-center">排序</TableHead>
+          <TableHead className="min-w-[180px]">菜单名称</TableHead>
+          <TableHead className="w-[70px] text-center">图标</TableHead>
+          <TableHead className="min-w-[140px]">权限标识</TableHead>
+          <TableHead className="min-w-[160px]">组件</TableHead>
+          <TableHead className="min-w-[120px]">路径</TableHead>
+          <TableHead className="w-[60px] text-center">排序</TableHead>
+          <TableHead className="w-[70px] text-center">状态</TableHead>
           <TableHead className="w-[120px] text-center">操作</TableHead>
         </TableRow>
       </TableHeader>
@@ -192,19 +195,30 @@ export function MenuTable({
                 </div>
               </TableCell>
               <TableCell className="text-center">
-                <span className="text-muted-foreground">{item.type}</span>
-              </TableCell>
-              <TableCell className="text-center">
                 {renderIcon(item.icon)}
               </TableCell>
               <TableCell>
-                <span className="text-muted-foreground">{item.component}</span>
+                <span className="text-muted-foreground font-mono text-sm">{item.permission ?? "-"}</span>
               </TableCell>
               <TableCell>
-                <span className="text-muted-foreground">{item.path}</span>
+                <span className="text-muted-foreground text-sm">{item.component ?? "-"}</span>
+              </TableCell>
+              <TableCell>
+                <span className="text-muted-foreground text-sm font-mono">{item.path ?? "-"}</span>
               </TableCell>
               <TableCell className="text-center">
                 <span className="text-muted-foreground">{item.sort}</span>
+              </TableCell>
+              <TableCell className="text-center">
+                <span
+                  className={cn(
+                    "text-sm",
+                    (item.status === "1" || !item.status) && "text-green-600",
+                    item.status === "0" && "text-destructive",
+                  )}
+                >
+                  {item.status === "0" ? "无效" : "有效"}
+                </span>
               </TableCell>
               <TableCell>
                 <div className="flex items-center justify-center gap-2">

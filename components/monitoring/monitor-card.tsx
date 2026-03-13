@@ -15,9 +15,10 @@ import {
 /** API type 与 通道标签 映射 */
 const TYPE_LABELS: Record<number, string> = {
   0: "桌面",
-  1: "教师",
+  1: "老师",
   2: "学生",
-  3: "特写",
+  3: "老师近景",
+  4: "学生近景",
 }
 
 type MonitorStatus = "in-class" | "idle" | "fault"

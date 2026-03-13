@@ -49,12 +49,18 @@ export async function getPlayWindows(
 /**
  * 将相对 URL 转为完整播放地址
  * 流媒体服务可与 API 不同，通过 NEXT_PUBLIC_STREAM_BASE_URL 配置
- * 例如: streamOut/live/1/stu.flv -> http://host/streamOut/live/1/stu.flv
+ * 未配置时，从 API 地址去掉 /jeecgboot 作为流媒体 base
+ * 例如: streamOut/live/1/stu.flv -> http://host:8200/streamOut/live/1/stu.flv
  */
 export function getFullStreamUrl(relativeUrl: string): string {
-  const streamBase =
-    (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_STREAM_BASE_URL) ||
-    getBaseUrl()
+  let streamBase: string
+  const envStream = typeof process !== "undefined" && process.env?.NEXT_PUBLIC_STREAM_BASE_URL
+  if (envStream) {
+    streamBase = envStream
+  } else {
+    const apiBase = getBaseUrl()
+    streamBase = apiBase.replace(/\/jeecgboot\/?$/, "")
+  }
   const base = streamBase.replace(/\/$/, "")
   const path = relativeUrl.startsWith("/") ? relativeUrl : `/${relativeUrl}`
   return `${base}${path}`
